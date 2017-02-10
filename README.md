@@ -26,7 +26,7 @@ Minimum OS: **OS X 10.8**
 * EDON-R 512, Whirlpool
 
 ### Notes
-* MD2 calculation produces an error with `openssl` for macOS, so it is not enabled
+* **MD2** calculation produces an error with `openssl` for macOS, so it is *not enabled*
 * **AICH** and **DC++ TTH** (part of `rhash`) are not available for automatic checksum comparison
 
 ## Functionality
@@ -34,11 +34,10 @@ Minimum OS: **OS X 10.8**
 * calculates user-selected (or default) checksum & file size
 * copies all information incl. filename to clipboard
 * parses clipboard content for possible checksums and auto-compares to calculated checksum
+* lots of additional checksum options, if the user has installed `rhash`
 
 ## Installation
 * [Download the latest DMG](https://github.com/JayBrown/Checksums/releases) and open
-
-** NOT YET RELEASED **
 
 ### Workflow
 * Double-click on the workflow file to install
