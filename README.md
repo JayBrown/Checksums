@@ -6,6 +6,8 @@
 # Checksums <img src="https://github.com/JayBrown/Checksums/blob/master/img/jb-img.png" height="20px"/>
 **macOS workflow and shell script to calculate or automatically verify file checksums**
 
+Minimum OS: **OS X 10.8**
+
 ## Supported algorithms (native to macOS)
 * CRC-32
 * MD5-length: MD4, MD5, MDC-2
