@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Checksums v1.2
+# Checksums v1.2.1
 # Checksums (shell script version)
 
 # minimum compatibility: native macOS checksum algorithms
@@ -9,7 +9,7 @@
 LANG=en_US.UTF-8
 export PATH=/usr/local/bin:$PATH
 ACCOUNT=$(/usr/bin/id -un)
-CURRENT_VERSION="1.2"
+CURRENT_VERSION="1.21"
 
 # clipboard checksum parsing
 cscn () {
@@ -178,7 +178,7 @@ FILEPATH="$1" # ALT: delete for workflow
 		CS_CHOICE=$(/usr/bin/osascript << EOT
 tell application "System Events"
 	activate
-	set theLogoPath to ((path to library folder from user domain) as text) & "Caches:local.lcars.checksum:lcars.png"
+	set theLogoPath to ((path to library folder from user domain) as text) & "Caches:local.lcars.Checksums:lcars.png"
 	set theButton to button returned of (display dialog "You are about to calculate the checksum for \"" & "$FILE" & "\". Please select the algorithm." ¬
 		buttons {"Cancel", "Other", "SHA-256"} ¬
 		default button 3 ¬
@@ -642,7 +642,7 @@ $FILESUM"
 	INFO=$(/usr/bin/osascript 2>/dev/null<< EOT
 tell application "System Events"
 	activate
-	set theLogoPath to ((path to library folder from user domain) as text) & "Caches:local.lcars.checksum:lcars.png"
+	set theLogoPath to ((path to library folder from user domain) as text) & "Caches:local.lcars.Checksums:lcars.png"
 	set userChoice to button returned of (display dialog "$OSA_PROMPT" ¬
 		buttons {"OK"} ¬
 		default button 1 ¬
