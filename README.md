@@ -41,13 +41,18 @@ Minimum OS: **OS X 10.8**
 * For the **Adler-32** calculation, a python script called `adler32.py` will be created in **Checksum**'s cache directory
 
 ## Functionality
-* default algorithm: SHA-256
-* calculates user-selected (or default) checksum & file size
+* default single file algorithm: SHA-256
+* calculates default or user-selected checksum
+* calculates file size (output: B, MB, MiB)
 * copies all information incl. filename to clipboard
 * parses clipboard content for possible checksums and auto-compares to calculated checksum
 * lots of additional checksum options, if the user has installed `rhash`
 * BitTorrent file hash calculation is possible, if the user has installed `transmission`
-* Create and verify `.sfv` and `.sha512` files with multiple checksums
+* creates `.sfv` and `.sha512` checksum digests for all files in a selected directory
+* verifies `.sfv`, `.sha256` & `.sha512` checksum digests
+
+### Future
+* **mhash** integration via `py-mhash` (unsure)
 
 ## Installation
 * [Download the latest DMG](https://github.com/JayBrown/Checksums/releases) and open
