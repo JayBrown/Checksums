@@ -74,6 +74,7 @@ EOT
 
 # check for update
 updater () {
+	echo "Checking for update..."
 	NEWEST_VERSION=$(/usr/bin/curl --silent https://api.github.com/repos/JayBrown/Checksums/releases/latest | /usr/bin/awk '/tag_name/ {print $2}' | xargs)
 	if [[ "$NEWEST_VERSION" == "" ]] ; then
 		NEWEST_VERSION="0"
@@ -201,84 +202,86 @@ FILEPATH="$1" # ALT: delete for workflow
 # ALT: for FILEPATH in "$@"
 # ALT: do
 
-	FILE=$(/usr/bin/basename "$FILEPATH")
-	METHOD=""
+FILE=$(/usr/bin/basename "$FILEPATH")
+METHOD=""
 
-	# check for .sfv or .sha* files
-	if [[ "$FILE" == *".sfv" ]] ; then
-		notify "⚠️ Please wait!" "Verifying checksums in SFV file…"
-		PARENT=$(/usr/bin/dirname "$FILEPATH")
-		SFV_CONTENT=$(/bin/cat "$FILEPATH")
-		echo "Detected SFV file"
-		echo "Running check in: $PARENT"
-		echo "***"
-		echo "$SFV_CONTENT" | while read -r LINE
-		do
-			SFV_HASH=$(echo "$LINE" | /usr/bin/rev | /usr/bin/awk '{print $1}' | /usr/bin/rev)
-			SFV_NAME=$(echo "$LINE" | /usr/bin/rev | /usr/bin/awk '{print substr($0, index($0,$2))}' | /usr/bin/rev)
-			echo "Checking file: $SFV_NAME"
-			echo "Published CRC: $SFV_HASH"
-			if [[ ! -f "$PARENT/$SFV_NAME" ]] ; then
-				notify "💣 Error: missing file" "$SFV_NAME"
-				echo "Error! File is missing!"
-				echo "***"
-				continue
+# check for .sfv or .sha* files
+if [[ "$FILE" == *".sfv" ]] ; then
+	METHOD="digest"
+	notify "⚠️ Please wait!" "Verifying checksums in SFV file…"
+	PARENT=$(/usr/bin/dirname "$FILEPATH")
+	SFV_CONTENT=$(/bin/cat "$FILEPATH")
+	echo "Detected SFV file"
+	echo "Running check in: $PARENT"
+	echo "***"
+	echo "$SFV_CONTENT" | while read -r LINE
+	do
+		SFV_HASH=$(echo "$LINE" | /usr/bin/rev | /usr/bin/awk '{print $1}' | /usr/bin/rev)
+		SFV_NAME=$(echo "$LINE" | /usr/bin/rev | /usr/bin/awk '{print substr($0, index($0,$2))}' | /usr/bin/rev)
+		echo "Checking file: $SFV_NAME"
+		echo "Published CRC: $SFV_HASH"
+		if [[ ! -f "$PARENT/$SFV_NAME" ]] ; then
+			notify "💣 Error: missing file" "$SFV_NAME"
+			echo "Error! File is missing!"
+			echo "***"
+			continue
+		else
+			SFV_DEC=$(/usr/bin/cksum -o 3 "$PARENT/$SFV_NAME" | /usr/bin/awk '{print $1}')
+			SFV_HEX=$(printf '%x\n' "$SFV_DEC" | /usr/bin/tr '[:lower:]' '[:upper:]')
+			echo "Calculate CRC: $SFV_HEX"
+			if [[ "$SFV_HEX" == "$SFV_HASH" ]] ; then
+				notify "✅ Success" "$SFV_NAME"
+				echo "Success! Checksums match!"
 			else
-				SFV_DEC=$(/usr/bin/cksum -o 3 "$PARENT/$SFV_NAME" | /usr/bin/awk '{print $1}')
-				SFV_HEX=$(printf '%x\n' "$SFV_DEC" | /usr/bin/tr '[:lower:]' '[:upper:]')
-				echo "Calculate CRC: $SFV_HEX"
-				if [[ "$SFV_HEX" == "$SFV_HASH" ]] ; then
-					notify "✅ Success" "$SFV_NAME"
-					echo "Success! Checksums match!"
-				else
-					notify "❌ Failed" "$SFV_NAME"
-					echo "Error! Checksum mismatch!"
-				fi
-				echo "***"
+				notify "❌ Failed" "$SFV_NAME"
+				echo "Error! Checksum mismatch!"
 			fi
-		done
-		updater
-		exit # ALT: continue
-	elif [[ "$FILE" == *".sha512" ]] || [[ "$FILE" == *".sha256" ]] ; then
-		EXTENSION="${FILE##*.}"
-		SHA_OPTION=$(echo "$EXTENSION" | /usr/bin/awk -F"sha" '{print $2}')
-		if [[ "$SHA_OPTION" != "512" ]] && [[ "$SHA_OPTION" != "256" ]] ; then
-			notify "☠️ Internal error" "Something went wrong"
-			exit # ALT: continue
+			echo "***"
 		fi
-		notify "⚠️ Please wait!" "Verifying checksums in SHA$SHA_OPTION file…"
-		PARENT=$(/usr/bin/dirname "$FILEPATH")
-		SHA_CONTENT=$(/bin/cat "$FILEPATH")
-		echo "Detected SHA$SHA_OPTION file"
-		echo "Running check in: $PARENT"
-		echo "***"
-		echo "$SHA_CONTENT" | while read -r LINE
-		do
-			SHA_HASH=$(echo "$LINE" | /usr/bin/awk '{print $1}')
-			SHA_NAME=$(echo "$LINE" | /usr/bin/awk '{print substr($0, index($0,$2))}')
-			echo "Checking file: $SHA_NAME"
-			echo "Published SHA: $SHA_HASH"
-			if [[ ! -f "$PARENT/$SHA_NAME" ]] ; then
-				notify "💣 Error: missing file" "$SHA_NAME"
-				echo "Error! File is missing!"
-				echo "***"
-				continue
-			else
-				SHA_CALC=$(/usr/bin/shasum -a "$SHA_OPTION" "$PARENT/$SHA_NAME" | /usr/bin/awk '{print $1}')
-				echo "Calculate SHA: $SHA_CALC"
-				if [[ "$SHA_CALC" == "$SHA_HASH" ]] ; then
-					notify "✅ Success" "$SHA_NAME"
-					echo "Success! Checksums match!"
-				else
-					notify "❌ Failed" "$SHA_NAME"
-					echo "Error! Checksum mismatch!"
-				fi
-				echo "***"
-			fi
-		done
-		updater
+	done
+	exit # ALT: continue
+
+elif [[ "$FILE" == *".sha512" ]] || [[ "$FILE" == *".sha256" ]] ; then
+	METHOD="digest"
+	EXTENSION="${FILE##*.}"
+	SHA_OPTION=$(echo "$EXTENSION" | /usr/bin/awk -F"sha" '{print $2}')
+	if [[ "$SHA_OPTION" != "512" ]] && [[ "$SHA_OPTION" != "256" ]] ; then
+		notify "☠️ Internal error" "Something went wrong"
 		exit # ALT: continue
 	fi
+	notify "⚠️ Please wait!" "Verifying checksums in SHA$SHA_OPTION file…"
+	PARENT=$(/usr/bin/dirname "$FILEPATH")
+	SHA_CONTENT=$(/bin/cat "$FILEPATH")
+	echo "Detected SHA$SHA_OPTION file"
+	echo "Running check in: $PARENT"
+	echo "***"
+	echo "$SHA_CONTENT" | while read -r LINE
+	do
+		SHA_HASH=$(echo "$LINE" | /usr/bin/awk '{print $1}')
+		SHA_NAME=$(echo "$LINE" | /usr/bin/awk '{print substr($0, index($0,$2))}')
+		echo "Checking file: $SHA_NAME"
+		echo "Published SHA: $SHA_HASH"
+		if [[ ! -f "$PARENT/$SHA_NAME" ]] ; then
+			notify "💣 Error: missing file" "$SHA_NAME"
+			echo "Error! File is missing!"
+			echo "***"
+			continue
+		else
+			SHA_CALC=$(/usr/bin/shasum -a "$SHA_OPTION" "$PARENT/$SHA_NAME" | /usr/bin/awk '{print $1}')
+			echo "Calculate SHA: $SHA_CALC"
+			if [[ "$SHA_CALC" == "$SHA_HASH" ]] ; then
+				notify "✅ Success" "$SHA_NAME"
+				echo "Success! Checksums match!"
+			else
+				notify "❌ Failed" "$SHA_NAME"
+				echo "Error! Checksum mismatch!"
+			fi
+			echo "***"
+		fi
+	done
+	exit # ALT: continue
+
+else
 
 	# check if bundle/directory
 	if [[ ! -f "$FILEPATH" ]] ; then
@@ -288,6 +291,7 @@ FILEPATH="$1" # ALT: delete for workflow
 			exit # ALT: continue
 		fi
 		if [[ -d "$FILEPATH" ]] ; then
+			METHOD="digest"
 			# ask for checksums file creation
 			SFV_CHOICE=$(/usr/bin/osascript << EOT
 tell application "System Events"
@@ -303,7 +307,6 @@ end tell
 theButton
 EOT)
 			if [[ "$SFV_CHOICE" == "No" ]] ; then
-				updater
 				exit # ALT: continue
 			fi
 			if [[ "$SFV_CHOICE" == "SFV" ]] ; then
@@ -313,7 +316,6 @@ EOT)
 				/usr/bin/cksum -o 3 * 2>/dev/null | while read CK SIZE FILE; do printf "%s %08X\n" "$FILE" "$CK"; done > "$FILEPATH/checksums.sfv"
 				cd $HOME
 				notify "✅ Done" "checksums.sfv"
-				updater
 				exit # ALT: continue
 			elif [[ "$SFV_CHOICE" == "SHA-512" ]] ; then
 				# create SHA-256 checksums file
@@ -325,16 +327,17 @@ EOT)
 					/usr/bin/shasum -a 512 "$FILE"
 				done > checksums.sha512
 				notify "✅ Done" "checksums.sha512"
-				updater
 				exit # ALT: continue
 			else
-				updater
 				exit # ALT: continue
 			fi
 		fi
 	fi
+fi
 
-	CHECKSUM=$(/usr/bin/pbpaste | /usr/bin/xargs)
+if [[ "$METHOD" != "digest" ]] ; then
+
+	CHECKSUM=$(/usr/bin/pbpaste | /usr/bin/xargs 2>/dev/null)
 	if [[ "$EXTD" == "native" ]] || [[ "$EXTD" == "bc" ]] ; then
 		CS_TYPE=$(cscn "$CHECKSUM")
 	elif [[ "$EXTD" == "rh" ]] || [[ "$EXTD" == "rh-bc" ]] ; then
@@ -373,7 +376,6 @@ end tell
 theButton
 EOT)
 		if [[ "$CS_CHOICE" == "" ]] || [[ "$CS_CHOICE" == "false" ]] ; then
-			updater
 			exit # ALT: continue
 		fi
 
@@ -416,7 +418,6 @@ theResult
 EOT)
 			fi
 			if [[ "$HA_CHOICE" == "" ]] || [[ "$HA_CHOICE" == "false" ]] ; then
-				updater
 				exit # ALT: continue
 			fi
 
@@ -469,7 +470,6 @@ EOT)
 					FILESUM=$("$TRANSM" "$FILEPATH" 2>&1 | /usr/bin/grep "Hash: " | /usr/bin/awk '{print $2}')
 					if [[ "$FILESUM" == "Error"* ]] || [[ "$FILESUM" == "" ]] ; then
 						notify "💣 Error [Bencode]" "Target possibly not a torrent file"
-						updater
 						exit # ALT: continue
 					fi
 				fi
@@ -525,7 +525,6 @@ EOT)
 					FILESUM=$("$TRANSM" "$FILEPATH" 2>&1 | /usr/bin/grep "Hash: " | /usr/bin/awk '{print $2}')
 					if [[ "$FILESUM" == "Error"* ]] || [[ "$FILESUM" == "" ]] ; then
 						notify "💣 Error [Bencode]" "Target possibly not a torrent file"
-						updater
 						exit # ALT: continue
 					fi
 				fi
@@ -1003,6 +1002,8 @@ tell application "System Events"
 		giving up after 180)
 end tell
 EOT)
+
+fi
 
 # ALT: done
 
