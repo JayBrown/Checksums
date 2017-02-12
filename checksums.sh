@@ -444,6 +444,7 @@ Checksum [$CS_CHOICE]: $FILESUM"
 				else
 					STATUS="❌ Failed"
 					ALGORITHM="Legacy Unix CRC class"
+					FILESUM="💣 n/a"
 				fi
 			fi
 		elif [[ "$CS_TYPE" == "cksum3" ]] ; then
@@ -453,6 +454,7 @@ Checksum [$CS_CHOICE]: $FILESUM"
 				STATUS="✅ Success"
 			else
 				STATUS="❌ Failed"
+				FILESUM="💣 n/a"
 			fi
 		elif [[ "$CS_TYPE" == "cksum-modern" ]] ; then
 			ALGORITHM="CRC (ISO/IEC 8802-3)"
@@ -461,6 +463,7 @@ Checksum [$CS_CHOICE]: $FILESUM"
 				STATUS="✅ Success"
 			else
 				STATUS="❌ Failed"
+				FILESUM="💣 n/a"
 			fi
 
 		# calculate CRC-32 & Adler-32
@@ -477,6 +480,7 @@ Checksum [$CS_CHOICE]: $FILESUM"
 				else
 					ALGORITHM="CRC/Adler-32"
 					STATUS="❌ Failed"
+					FILESUM="💣 n/a"
 				fi
 			fi
 
