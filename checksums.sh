@@ -303,6 +303,7 @@ end tell
 theButton
 EOT)
 			if [[ "$SFV_CHOICE" == "No" ]] ; then
+				updater
 				exit # ALT: continue
 			fi
 			if [[ "$SFV_CHOICE" == "SFV" ]] ; then
@@ -372,6 +373,7 @@ end tell
 theButton
 EOT)
 		if [[ "$CS_CHOICE" == "" ]] || [[ "$CS_CHOICE" == "false" ]] ; then
+			updater
 			exit # ALT: continue
 		fi
 
@@ -414,6 +416,7 @@ theResult
 EOT)
 			fi
 			if [[ "$HA_CHOICE" == "" ]] || [[ "$HA_CHOICE" == "false" ]] ; then
+				updater
 				exit # ALT: continue
 			fi
 
