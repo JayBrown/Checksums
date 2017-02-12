@@ -47,6 +47,7 @@ Minimum OS: **OS X 10.8**
 * parses clipboard content for possible checksums and auto-compares to calculated checksum
 * lots of additional checksum options, if the user has installed `rhash`
 * BitTorrent file hash calculation is possible, if the user has installed `transmission`
+* Create and verify `.sfv` and `.sha512` files with multiple checksums
 
 ## Installation
 * [Download the latest DMG](https://github.com/JayBrown/Checksums/releases) and open
