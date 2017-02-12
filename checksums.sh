@@ -72,6 +72,19 @@ EOT
 	fi
 }
 
+# check for update
+updater () {
+	NEWEST_VERSION=$(/usr/bin/curl --silent https://api.github.com/repos/JayBrown/Checksums/releases/latest | /usr/bin/awk '/tag_name/ {print $2}' | xargs)
+	if [[ "$NEWEST_VERSION" == "" ]] ; then
+		NEWEST_VERSION="0"
+	fi
+	NEWEST_VERSION=${NEWEST_VERSION//,}
+	if (( $(echo "$NEWEST_VERSION > $CURRENT_VERSION" | /usr/bin/bc -l) )) ; then
+		notify "⚠️ Update available" "Checksums v$NEWEST_VERSION"
+		/usr/bin/open "https://github.com/JayBrown/Checksums/releases/latest"
+	fi
+}
+
 # check compatibility
 MACOS2NO=$(/usr/bin/sw_vers -productVersion | /usr/bin/awk -F. '{print $2}')
 if [[ "$MACOS2NO" -le 7 ]] ; then
@@ -191,8 +204,9 @@ FILEPATH="$1" # ALT: delete for workflow
 	FILE=$(/usr/bin/basename "$FILEPATH")
 	METHOD=""
 
-	# check for .sfv file
+	# check for .sfv or .sha* files
 	if [[ "$FILE" == *".sfv" ]] ; then
+		notify "⚠️ Please wait!" "Verifying checksums in SFV file…"
 		PARENT=$(/usr/bin/dirname "$FILEPATH")
 		SFV_CONTENT=$(/bin/cat "$FILEPATH")
 		echo "Detected SFV file"
@@ -206,7 +220,7 @@ FILEPATH="$1" # ALT: delete for workflow
 			echo "Published CRC: $SFV_HASH"
 			if [[ ! -f "$PARENT/$SFV_NAME" ]] ; then
 				notify "💣 Error: missing file" "$SFV_NAME"
-				echo "Error! file is missing!"
+				echo "Error! File is missing!"
 				echo "***"
 				continue
 			else
@@ -223,6 +237,46 @@ FILEPATH="$1" # ALT: delete for workflow
 				echo "***"
 			fi
 		done
+		updater
+		exit # ALT: continue
+	elif [[ "$FILE" == *".sha512" ]] || [[ "$FILE" == *".sha256" ]] ; then
+		EXTENSION="${FILE##*.}"
+		SHA_OPTION=$(echo "$EXTENSION" | /usr/bin/awk -F"sha" '{print $2}')
+		if [[ "$SHA_OPTION" != "512" ]] && [[ "$SHA_OPTION" != "256" ]] ; then
+			notify "☠️ Internal error" "Something went wrong"
+			exit # ALT: continue
+		fi
+		notify "⚠️ Please wait!" "Verifying checksums in SHA$SHA_OPTION file…"
+		PARENT=$(/usr/bin/dirname "$FILEPATH")
+		SHA_CONTENT=$(/bin/cat "$FILEPATH")
+		echo "Detected SHA$SHA_OPTION file"
+		echo "Running check in: $PARENT"
+		echo "***"
+		echo "$SHA_CONTENT" | while read -r LINE
+		do
+			SHA_HASH=$(echo "$LINE" | /usr/bin/awk '{print $1}')
+			SHA_NAME=$(echo "$LINE" | /usr/bin/awk '{print substr($0, index($0,$2))}')
+			echo "Checking file: $SHA_NAME"
+			echo "Published SHA: $SHA_HASH"
+			if [[ ! -f "$PARENT/$SHA_NAME" ]] ; then
+				notify "💣 Error: missing file" "$SHA_NAME"
+				echo "Error! File is missing!"
+				echo "***"
+				continue
+			else
+				SHA_CALC=$(/usr/bin/shasum -a "$SHA_OPTION" "$PARENT/$SHA_NAME" | /usr/bin/awk '{print $1}')
+				echo "Calculate SHA: $SHA_CALC"
+				if [[ "$SHA_CALC" == "$SHA_HASH" ]] ; then
+					notify "✅ Success" "$SHA_NAME"
+					echo "Success! Checksums match!"
+				else
+					notify "❌ Failed" "$SHA_NAME"
+					echo "Error! Checksum mismatch!"
+				fi
+				echo "***"
+			fi
+		done
+		updater
 		exit # ALT: continue
 	fi
 
@@ -258,6 +312,7 @@ EOT)
 				/usr/bin/cksum -o 3 * 2>/dev/null | while read CK SIZE FILE; do printf "%s %08X\n" "$FILE" "$CK"; done > "$FILEPATH/checksums.sfv"
 				cd $HOME
 				notify "✅ Done" "checksums.sfv"
+				updater
 				exit # ALT: continue
 			elif [[ "$SFV_CHOICE" == "SHA-512" ]] ; then
 				# create SHA-256 checksums file
@@ -269,8 +324,10 @@ EOT)
 					/usr/bin/shasum -a 512 "$FILE"
 				done > checksums.sha512
 				notify "✅ Done" "checksums.sha512"
+				updater
 				exit # ALT: continue
 			else
+				updater
 				exit # ALT: continue
 			fi
 		fi
@@ -409,6 +466,7 @@ EOT)
 					FILESUM=$("$TRANSM" "$FILEPATH" 2>&1 | /usr/bin/grep "Hash: " | /usr/bin/awk '{print $2}')
 					if [[ "$FILESUM" == "Error"* ]] || [[ "$FILESUM" == "" ]] ; then
 						notify "💣 Error [Bencode]" "Target possibly not a torrent file"
+						updater
 						exit # ALT: continue
 					fi
 				fi
@@ -464,6 +522,7 @@ EOT)
 					FILESUM=$("$TRANSM" "$FILEPATH" 2>&1 | /usr/bin/grep "Hash: " | /usr/bin/awk '{print $2}')
 					if [[ "$FILESUM" == "Error"* ]] || [[ "$FILESUM" == "" ]] ; then
 						notify "💣 Error [Bencode]" "Target possibly not a torrent file"
+						updater
 						exit # ALT: continue
 					fi
 				fi
@@ -944,13 +1003,4 @@ EOT)
 
 # ALT: done
 
-# check for update
-NEWEST_VERSION=$(/usr/bin/curl --silent https://api.github.com/repos/JayBrown/Checksums/releases/latest | /usr/bin/awk '/tag_name/ {print $2}' | xargs)
-if [[ "$NEWEST_VERSION" == "" ]] ; then
-	NEWEST_VERSION="0"
-fi
-NEWEST_VERSION=${NEWEST_VERSION//,}
-if (( $(echo "$NEWEST_VERSION > $CURRENT_VERSION" | /usr/bin/bc -l) )) ; then
-	notify "⚠️ Update available" "Checksums v$NEWEST_VERSION"
-	/usr/bin/open "https://github.com/JayBrown/Checksums/releases/latest"
-fi
+updater
