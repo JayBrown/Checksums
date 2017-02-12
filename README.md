@@ -1,6 +1,7 @@
 ![Checksums-platform-macos](https://img.shields.io/badge/platform-macOS-lightgrey.svg)
 ![Checksums-code-shell](https://img.shields.io/badge/code-shell-yellow.svg)
 [![Checksums-depend-rhash](https://img.shields.io/badge/dependency-rhash%201.7.1-green.svg)](https://github.com/rhash/RHash)
+[![Checksums-depend-transm](https://img.shields.io/badge/dependency-rhash%202.9.2-green.svg)](https://github.com/transmission/transmission-releases)
 [![Checksums-depend-tnote](https://img.shields.io/badge/dependency-terminal--notifier%201.3.4-green.svg)](https://github.com/alloy/terminal-notifier)
 [![Checksums-license](http://img.shields.io/badge/license-MIT+-blue.svg)](https://github.com/JayBrown/Checksums/blob/master/license.md)
 
@@ -10,7 +11,7 @@
 Minimum OS: **OS X 10.8**
 
 ## Supported algorithms
-### native to macOS
+### Native to macOS
 * CRC-32
 * MD5-length: MD4, MD5, MDC-2
 * SHA1-length: SHA-1, SHA-0, RIPEMD-160
@@ -25,9 +26,13 @@ Minimum OS: **OS X 10.8**
 * EDON-R 256, GOST, GOST CryptoPro, SNEFRU-256
 * EDON-R 512, Whirlpool
 
+### transmission
+* Bencode
+
 ### Notes
 * **MD2** calculation produces an error with `openssl` for macOS, so it is *not enabled*
 * **AICH** and **DC++ TTH** (part of `rhash`) are not available for automatic checksum comparison
+* **Bencode** will work on `.torrent` files only
 
 ## Functionality
 * default algorithm: SHA-256
@@ -35,6 +40,7 @@ Minimum OS: **OS X 10.8**
 * copies all information incl. filename to clipboard
 * parses clipboard content for possible checksums and auto-compares to calculated checksum
 * lots of additional checksum options, if the user has installed `rhash`
+* BitTorrent file hash calculation is possible, if the user has installed `transmission`
 
 ## Installation
 * [Download the latest DMG](https://github.com/JayBrown/Checksums/releases) and open
@@ -72,6 +78,12 @@ You need to have Spotlight enabled for `mdfind` to locate the terminal-notifier.
 More information: [rhash](https://github.com/rhash/RHash)
 
 * install using [Homebrew](http://brew.sh) with `brew install rhash` (or with a similar manager)
+
+### transmission [optional]
+More information: [transmission](https://github.com/transmission/transmission-releases)
+
+* install using [Homebrew](http://brew.sh) with `brew install transmission` (or with a similar manager)
+* **Checksum** will use only the `transmission-show` binary
 
 ## Screengrabs
 ![checksum-main](https://github.com/JayBrown/Checksums/blob/master/img/checksums-main.png)

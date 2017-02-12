@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Checksums v1.2.2
+# Checksums v1.3.0
 # Checksums (shell script version)
 
 # minimum compatibility: native macOS checksum algorithms
@@ -9,7 +9,7 @@
 LANG=en_US.UTF-8
 export PATH=/usr/local/bin:$PATH
 ACCOUNT=$(/usr/bin/id -un)
-CURRENT_VERSION="1.22"
+CURRENT_VERSION="1.30"
 
 # clipboard checksum parsing
 cscn () {
@@ -122,16 +122,26 @@ else
 	NOTESTATUS="tn"
 fi
 
-# check if rhash is present
+# check if rhash and transmission-show are present
 RHASH=$(which rhash 2>/dev/null)
 if [[ "$RHASH" != "/"*"/rhash" ]] ; then
 	RHASH_STATUS="false"
 else
 	RHASH_STATUS="true"
 fi
-if [[ "$RHASH_STATUS" == "true" ]] ; then
-	EXTD="rh"
+TRANSM=$(which transmission-show 2>/dev/null)
+if [[ "$TRANSM" != "/"*"/transmission-show" ]] ; then
+	BENCODE="false"
 else
+	BENCODE="true"
+fi
+if [[ "$RHASH_STATUS" == "true" ]] && [[ "$BENCODE" == "false" ]] ; then
+	EXTD="rh"
+elif [[ "$RHASH_STATUS" == "true" ]] && [[ "$BENCODE" == "true" ]] ; then
+	EXTD="rh-bc"
+elif [[ "$RHASH_STATUS" == "false" ]] && [[ "$BENCODE" == "true" ]] ; then
+	EXTD="bc"
+elif [[ "$RHASH_STATUS" == "false" ]] && [[ "$BENCODE" == "false" ]] ; then
 	EXTD="native"
 fi
 
@@ -157,9 +167,9 @@ FILEPATH="$1" # ALT: delete for workflow
 	fi
 
 	CHECKSUM=$(/usr/bin/pbpaste | /usr/bin/xargs)
-	if [[ "$EXTD" == "native" ]] ; then
+	if [[ "$EXTD" == "native" ]] || [[ "$EXTD" == "bc" ]] ; then
 		CS_TYPE=$(cscn "$CHECKSUM")
-	elif [[ "$EXTD" == "rh" ]] ; then
+	elif [[ "$EXTD" == "rh" ]] || [[ "$EXTD" == "rh-bc" ]] ; then
 		CS_TYPE=$(cscx "$CHECKSUM")
 	fi
 
@@ -170,6 +180,12 @@ FILEPATH="$1" # ALT: delete for workflow
 		SIZE="0$MEGABYTES"
 	else
 		SIZE="$MEGABYTES"
+	fi
+	MIB_RAW=$(/usr/bin/bc -l <<< "scale=6; $BYTES/1048576")
+	if [[ ($MIB_RAW<1) ]] ; then
+		MIB="0$MIB_RAW"
+	else
+		MIB="$MIB_RAW"
 	fi
 
 	# ask for checksum algorithm, if clipboard is empty
@@ -213,6 +229,22 @@ set theResult to choose from list theList with prompt "Please select the algorit
 end tell
 theResult
 EOT)
+			elif [[ "$EXTD" == "rh-bc" ]] ; then
+				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
+tell application "System Events"
+set theList to {"AICH","Bencode","BTIH","CRC-32","DC++ TTH","ED2K","EDON-R 256","EDON-R 512","GOST","GOST CryptoPro","HAS-160","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512","SHA3-224","SHA3-256","SHA3-384","SHA3-512","SNEFRU-128","SNEFRU-256","Tiger","Whirlpool"}
+set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
+end tell
+theResult
+EOT)
+			elif [[ "$EXTD" == "bc" ]] ; then
+				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
+tell application "System Events"
+	set theList to {"Bencode","CRC-32","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512"}
+	set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
+end tell
+theResult
+EOT)
 			fi
 			if [[ "$HA_CHOICE" == "" ]] || [[ "$HA_CHOICE" == "false" ]] ; then
 				exit # ALT: continue
@@ -246,8 +278,19 @@ EOT)
 
 			fi
 
-			# calculate checksum based on user choice (rhash)
-			if [[ "$EXTD" == "rh" ]] ; then
+			# calculate checksum based on user choice (transmission-show)
+			if [[ "$EXTD" == "bc" ]] ; then
+				if [[ "$HA_CHOICE" == "Bencode" ]] ; then
+					FILESUM=$("$TRANSM" "$FILEPATH" 2>&1 | /usr/bin/grep "Hash: " | /usr/bin/awk '{print $2}')
+					if [[ "$FILESUM" == "Error"* ]] || [[ "$FILESUM" == "" ]] ; then
+						notify "💣 Error [Bencode]" "Target possibly not a torrent file"
+						exit # ALT: continue
+					fi
+				fi
+			fi
+
+			# calculate checksum based on user choice (rhash or rhash plus transmission-show)
+			if [[ "$EXTD" == "rh" ]] || [[ "$EXTD" == "rh-bc" ]] ; then
 
 				if [[ "$HA_CHOICE" == "SHA3-"* ]] ; then
 					OPTION=$(echo "$HA_CHOICE" | /usr/bin/awk -F"-" '{print $2}')
@@ -292,6 +335,12 @@ EOT)
 				elif [[ "$HA_CHOICE" == "Whirlpool" ]] ; then
 					FILESUM=$("$RHASH" -W "$FILEPATH" | /usr/bin/awk '{print $1}')
 
+				elif [[ "$HA_CHOICE" == "Bencode" ]] ; then
+					FILESUM=$("$TRANSM" "$FILEPATH" 2>&1 | /usr/bin/grep "Hash: " | /usr/bin/awk '{print $2}')
+					if [[ "$FILESUM" == "Error"* ]] || [[ "$FILESUM" == "" ]] ; then
+						notify "💣 Error [Bencode]" "Target possibly not a torrent file"
+						exit # ALT: continue
+					fi
 				fi
 			fi
 
@@ -300,7 +349,7 @@ EOT)
 
 		# output for new calculation
 		echo "File: $FILE"
-		echo "Size: $BYTES B [$SIZE MB]"
+		echo "Size: $BYTES B [$SIZE MB] [$MIB MiB]"
 		echo "Checksum [$CS_CHOICE]: $FILESUM"
 		OSA_PROMPT="■■■ File ■■■
 $FILE
@@ -308,6 +357,7 @@ $FILE
 ■■■ Size ■■■
 $BYTES B
 $SIZE MB
+$MIB MiB
 
 ■■■ Checksum [$CS_CHOICE] ■■■
 $FILESUM
@@ -316,7 +366,7 @@ The information has also been copied to your clipboard."
 
 		# set copy info for clipboard & copy
 		COPY_INFO="Name: $FILE
-Size: $BYTES B [$SIZE MB]
+Size: $BYTES B [$SIZE MB] [$MIB MiB]
 Checksum [$CS_CHOICE]: $FILESUM"
 		echo "$COPY_INFO" | /usr/bin/pbcopy
 	else
@@ -332,29 +382,29 @@ Checksum [$CS_CHOICE]: $FILESUM"
 			ALGORITHM="CRC-32"
 			FILESUM=$(/usr/bin/crc32 "$FILEPATH")
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-				STATUS="✅ success"
+				STATUS="✅ Success"
 			else
-				STATUS="❌ failed"
+				STATUS="❌ Failed"
 			fi
 
 		# calculate MD-class: MD5, MDC-2, MD4
 		elif [[ "$CS_TYPE" == "md" ]] && [[ "$EXTD" == "native" ]] ; then
 			FILESUM=$(/sbin/md5 -q "$FILEPATH")
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-				STATUS="✅ success"
+				STATUS="✅ Success"
 				ALGORITHM="MD5"
 			else
 				FILESUM=$(/usr/bin/openssl dgst -mdc2 "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
 				if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-					STATUS="✅ success"
+					STATUS="✅ Success"
 					ALGORITHM="MDC-2"
 				else
 					FILESUM=$(/usr/bin/openssl dgst -md4 "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
 					if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-						STATUS="✅ success"
+						STATUS="✅ Success"
 						ALGORITHM="MD4"
 					else
-						STATUS="❌ failed"
+						STATUS="❌ Failed"
 						ALGORITHM="MD-length"
 						FILESUM="💣 n/a"
 					fi
@@ -363,30 +413,30 @@ Checksum [$CS_CHOICE]: $FILESUM"
 		elif [[ "$CS_TYPE" == "md" ]] && [[ "$EXTD" == "rh" ]] ; then
 			FILESUM=$(/sbin/md5 -q "$FILEPATH")
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-				STATUS="✅ success"
+				STATUS="✅ Success"
 				ALGORITHM="MD5"
 			else
 				FILESUM=$(/usr/bin/openssl dgst -mdc2 "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
 				if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-					STATUS="✅ success"
+					STATUS="✅ Success"
 					ALGORITHM="MDC-2"
 				else
 					FILESUM=$(/usr/bin/openssl dgst -md4 "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
 					if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-						STATUS="✅ success"
+						STATUS="✅ Success"
 						ALGORITHM="MD4"
 					else
 						FILESUM=$("$RHASH" --snefru128 "$FILEPATH" | /usr/bin/awk '{print $1}')
 						if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-							STATUS="✅ success"
+							STATUS="✅ Success"
 							ALGORITHM="SNEFRU-128"
 						else
 							FILESUM=$("$RHASH" -E "$FILEPATH" | /usr/bin/awk '{print $1}')
 							if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-								STATUS="✅ success"
+								STATUS="✅ Success"
 								ALGORITHM="ED2K"
 							else
-								STATUS="❌ failed"
+								STATUS="❌ Failed"
 								ALGORITHM="MD-length"
 								FILESUM="💣 n/a"
 							fi
@@ -399,20 +449,20 @@ Checksum [$CS_CHOICE]: $FILESUM"
 		elif [[ "$CS_TYPE" == "sha" ]] && [[ "$EXTD" == "native" ]] ; then
 			FILESUM=$(/usr/bin/shasum -a 1 "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-				STATUS="✅ success"
+				STATUS="✅ Success"
 				ALGORITHM="SHA-1"
 			else
 				FILESUM=$(/usr/bin/openssl dgst -ripemd160 "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
 				if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-					STATUS="✅ success"
+					STATUS="✅ Success"
 					ALGORITHM="RIPEMD-160"
 				else
 					FILESUM=$(/usr/bin/openssl dgst -sha "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
 					if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-						STATUS="✅ success"
+						STATUS="✅ Success"
 						ALGORITHM="SHA-0"
 					else
-						STATUS="❌ failed"
+						STATUS="❌ Failed"
 						ALGORITHM="SHA-length"
 						FILESUM="💣 n/a"
 					fi
@@ -421,32 +471,100 @@ Checksum [$CS_CHOICE]: $FILESUM"
 		elif [[ "$CS_TYPE" == "sha" ]] && [[ "$EXTD" == "rh" ]] ; then
 			FILESUM=$(/usr/bin/shasum -a 1 "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-				STATUS="✅ success"
+				STATUS="✅ Success"
 				ALGORITHM="SHA-1"
 			else
 				FILESUM=$(/usr/bin/openssl dgst -ripemd160 "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
 				if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-					STATUS="✅ success"
+					STATUS="✅ Success"
 					ALGORITHM="RIPEMD-160"
 				else
 					FILESUM=$(/usr/bin/openssl dgst -sha "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
 					if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-						STATUS="✅ success"
+						STATUS="✅ Success"
 						ALGORITHM="SHA-0"
 					else
 						FILESUM=$("$RHASH" --has160 "$FILEPATH" | /usr/bin/awk '{print $1}')
 						if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-							STATUS="✅ success"
+							STATUS="✅ Success"
 							ALGORITHM="HAS-160"
 						else
 							FILESUM=$("$RHASH" --btih "$FILEPATH" | /usr/bin/awk '{print $1}')
 							if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-								STATUS="✅ success"
+								STATUS="✅ Success"
 								ALGORITHM="BTIH"
 							else
-								STATUS="❌ failed"
+								STATUS="❌ Failed"
 								ALGORITHM="SHA-length"
 								FILESUM="💣 n/a"
+							fi
+						fi
+					fi
+				fi
+			fi
+		elif [[ "$CS_TYPE" == "sha" ]] && [[ "$EXTD" == "bc" ]] ; then
+			FILESUM=$(/usr/bin/shasum -a 1 "$FILEPATH" | /usr/bin/awk '{print $1}')
+			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+				STATUS="✅ Success"
+				ALGORITHM="SHA-1"
+			else
+				FILESUM=$(/usr/bin/openssl dgst -ripemd160 "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
+				if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+					STATUS="✅ Success"
+					ALGORITHM="RIPEMD-160"
+				else
+					FILESUM=$(/usr/bin/openssl dgst -sha "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
+					if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+						STATUS="✅ Success"
+						ALGORITHM="SHA-0"
+					else
+						FILESUM=$("$TRANSM" "$FILEPATH" 2>&1 | /usr/bin/grep "Hash: " | /usr/bin/awk '{print $2}')
+						if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+							STATUS="✅ Success"
+							ALGORITHM="Bencode"
+						else
+							STATUS="❌ Failed"
+							ALGORITHM="SHA-length"
+							FILESUM="💣 n/a"
+						fi
+					fi
+				fi
+			fi
+		elif [[ "$CS_TYPE" == "sha" ]] && [[ "$EXTD" == "rh-bc" ]] ; then
+			FILESUM=$(/usr/bin/shasum -a 1 "$FILEPATH" | /usr/bin/awk '{print $1}')
+			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+				STATUS="✅ Success"
+				ALGORITHM="SHA-1"
+			else
+				FILESUM=$(/usr/bin/openssl dgst -ripemd160 "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
+				if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+					STATUS="✅ Success"
+					ALGORITHM="RIPEMD-160"
+				else
+					FILESUM=$(/usr/bin/openssl dgst -sha "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
+					if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+						STATUS="✅ Success"
+						ALGORITHM="SHA-0"
+					else
+						FILESUM=$("$RHASH" --has160 "$FILEPATH" | /usr/bin/awk '{print $1}')
+						if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+							STATUS="✅ Success"
+							ALGORITHM="HAS-160"
+						else
+							FILESUM=$("$RHASH" --btih "$FILEPATH" | /usr/bin/awk '{print $1}')
+							if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+								STATUS="✅ Success"
+								ALGORITHM="BTIH"
+							else
+								FILESUM=$("$TRANSM" "$FILEPATH" 2>&1 | /usr/bin/grep "Hash: " | /usr/bin/awk '{print $2}')
+								if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+									STATUS="✅ Success"
+									ALGORITHM="Bencode"
+								else
+									STATUS="❌ Failed"
+									ALGORITHM="SHA-length"
+									FILESUM="💣 n/a"
+								fi
 							fi
 						fi
 					fi
@@ -457,10 +575,10 @@ Checksum [$CS_CHOICE]: $FILESUM"
 		elif [[ "$CS_TYPE" == "tiger" ]] ; then
 			FILESUM=$("$RHASH" --tiger "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-				STATUS="✅ success"
+				STATUS="✅ Success"
 				ALGORITHM="Tiger"
 			else
-				STATUS="❌ failed"
+				STATUS="❌ Failed"
 				ALGORITHM="Tiger"
 				FILESUM="💣 n/a"
 			fi
@@ -470,9 +588,9 @@ Checksum [$CS_CHOICE]: $FILESUM"
 			FILESUM=$(/usr/bin/shasum -a 224 "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 				ALGORITHM="SHA-224"
-				STATUS="✅ success"
+				STATUS="✅ Success"
 			else
-				STATUS="❌ failed"
+				STATUS="❌ Failed"
 				ALGORITHM="SHA-224"
 				FILESUM="💣 n/a"
 			fi
@@ -480,15 +598,15 @@ Checksum [$CS_CHOICE]: $FILESUM"
 			FILESUM=$(/usr/bin/shasum -a 224 "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 				ALGORITHM="SHA-224"
-				STATUS="✅ success"
+				STATUS="✅ Success"
 			else
 				FILESUM=$("$RHASH" --sha3-224 "$FILEPATH" | /usr/bin/awk '{print $1}')
 				if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-					STATUS="✅ success"
+					STATUS="✅ Success"
 					ALGORITHM="SHA3-224"
 				else
 					ALGORITHM="SHA224-length"
-					STATUS="❌ failed"
+					STATUS="❌ Failed"
 					FILESUM="💣 n/a"
 				fi
 			fi
@@ -498,45 +616,45 @@ Checksum [$CS_CHOICE]: $FILESUM"
 		FILESUM=$(/usr/bin/shasum -a 256 "$FILEPATH" | /usr/bin/awk '{print $1}')
 		if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 			ALGORITHM="SHA-256"
-			STATUS="✅ success"
+			STATUS="✅ Success"
 		else
 			ALGORITHM="SHA256"
-			STATUS="❌ failed"
+			STATUS="❌ Failed"
 			FILESUM="💣 n/a"
 		fi
 		elif [[ "$CS_TYPE" == "256" ]] && [[ "$EXTD" == "rh" ]] ; then
 			FILESUM=$(/usr/bin/shasum -a 256 "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 				ALGORITHM="SHA-256"
-				STATUS="✅ success"
+				STATUS="✅ Success"
 			else
 				FILESUM=$("$RHASH" --sha3-256 "$FILEPATH" | /usr/bin/awk '{print $1}')
 				if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-					STATUS="✅ success"
+					STATUS="✅ Success"
 					ALGORITHM="SHA3-256"
 				else
 					FILESUM=$("$RHASH" -G "$FILEPATH" | /usr/bin/awk '{print $1}')
 					if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-						STATUS="✅ success"
+						STATUS="✅ Success"
 						ALGORITHM="GOST"
 					else
 						FILESUM=$("$RHASH" --gost-cryptopro "$FILEPATH" | /usr/bin/awk '{print $1}')
 						if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-							STATUS="✅ success"
+							STATUS="✅ Success"
 							ALGORITHM="GOST CryptoPro"
 						else
 							FILESUM=$("$RHASH" --snefru256 "$FILEPATH" | /usr/bin/awk '{print $1}')
 							if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-								STATUS="✅ success"
+								STATUS="✅ Success"
 								ALGORITHM="SNEFRU-256"
 							else
 								FILESUM=$("$RHASH" --edonr256 "$FILEPATH" | /usr/bin/awk '{print $1}')
 								if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-									STATUS="✅ success"
+									STATUS="✅ Success"
 									ALGORITHM="EDON-R 256"
 								else
 									ALGORITHM="SHA256-length"
-									STATUS="❌ failed"
+									STATUS="❌ Failed"
 									FILESUM="💣 n/a"
 								fi
 							fi
@@ -550,25 +668,25 @@ Checksum [$CS_CHOICE]: $FILESUM"
 			FILESUM=$(/usr/bin/shasum -a 384 "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 				ALGORITHM="SHA-384"
-				STATUS="✅ success"
+				STATUS="✅ Success"
 			else
 				ALGORITHM="SHA-384"
-				STATUS="❌ failed"
+				STATUS="❌ Failed"
 				FILESUM="💣 n/a"
 			fi
 		elif [[ "$CS_TYPE" == "384" ]] && [[ "$EXTD" == "rh" ]] ; then
 			FILESUM=$(/usr/bin/shasum -a 384 "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 				ALGORITHM="SHA-384"
-				STATUS="✅ success"
+				STATUS="✅ Success"
 			else
 				FILESUM=$("$RHASH" --sha3-384 "$FILEPATH" | /usr/bin/awk '{print $1}')
 				if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-					STATUS="✅ success"
+					STATUS="✅ Success"
 					ALGORITHM="SHA3-384"
 				else
 					ALGORITHM="SHA384-length"
-					STATUS="❌ failed"
+					STATUS="❌ Failed"
 					FILESUM="💣 n/a"
 				fi
 			fi
@@ -578,34 +696,34 @@ Checksum [$CS_CHOICE]: $FILESUM"
 			FILESUM=$(/usr/bin/shasum -a 512 "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 				ALGORITHM="SHA-512"
-				STATUS="✅ success"
+				STATUS="✅ Success"
 			else
 				ALGORITHM="SHA-512"
-				STATUS="❌ failed"
+				STATUS="❌ Failed"
 				FILESUM="💣 n/a"
 			fi
 		elif [[ "$CS_TYPE" == "512" ]] && [[ "$EXTD" == "rh" ]] ; then
 			FILESUM=$(/usr/bin/shasum -a 512 "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 				ALGORITHM="SHA-512"
-				STATUS="✅ success"
+				STATUS="✅ Success"
 			else
 				FILESUM=$("$RHASH" --sha3-512 "$FILEPATH" | /usr/bin/awk '{print $1}')
 				if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-					STATUS="✅ success"
+					STATUS="✅ Success"
 					ALGORITHM="SHA3-512"
 				else
 					FILESUM=$("$RHASH" -W "$FILEPATH" | /usr/bin/awk '{print $1}')
 					if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-						STATUS="✅ success"
+						STATUS="✅ Success"
 						ALGORITHM="Whirlpool"
 					else
 						FILESUM=$("$RHASH" --edonr512 "$FILEPATH" | /usr/bin/awk '{print $1}')
 						if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
-							STATUS="✅ success"
+							STATUS="✅ Success"
 							ALGORITHM="EDON-R 512"
 						else
-							STATUS="❌ failed"
+							STATUS="❌ Failed"
 							ALGORITHM="SHA512-length"
 							FILESUM="💣 n/a"
 						fi
@@ -617,7 +735,7 @@ Checksum [$CS_CHOICE]: $FILESUM"
 		# output for checksum comparison
 		notify "$STATUS [$ALGORITHM]" "$FILE"
 		echo "File: $FILE"
-		echo "Size: $BYTES B [$SIZE MB]"
+		echo "Size: $BYTES B [$SIZE MB] [$MIB MiB]"
 		echo "Verification [$ALGORITHM]: $STATUS"
 		echo "$FILESUM [calculated]"
 		echo "$CHECKSUM [clipboard]"
@@ -627,6 +745,7 @@ $FILE
 ■■■ Size ■■■
 $BYTES B
 $SIZE MB
+$MIB MiB
 
 ■■■ Verification ■■■
 $STATUS [$ALGORITHM]
