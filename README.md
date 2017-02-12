@@ -20,7 +20,7 @@ Minimum OS: **OS X 10.8**
 * SHA2-class: SHA-224, SHA-256, SHA-384, SHA-512
 
 ### Scripted calculations
-* Adler-32 (using `python`)
+* Adler-32 (using `adler32` from `zlib`)
 
 ### rhash
 * MD5-length: AICH, SNEFRU-128
