@@ -12,8 +12,8 @@ Minimum OS: **OS X 10.8**
 
 ## Supported algorithms
 ### macOS native
-* CRC (BSD), CRC (System V), CRC (legacy 32bit)
-* CRC (ISO/IEC 8802-3:1989)
+* CRC (BSD), CRC (System V), CRC (legacy 32bit) [decimal]
+* CRC (ISO/IEC 8802-3:1989) [decimal]
 * CRC-32 (sometimes called CRC-32b to distinguish from ethernet CRC-32)
 * MD5-length: MD4, MD5, MDC-2
 * SHA1-length: SHA-1, SHA-0, RIPEMD-160
