@@ -38,7 +38,7 @@ Minimum OS: **OS X 10.8**
 * **MD2** calculation produces an error with `openssl` for macOS, so it is *not enabled*
 * **AICH** and **DC++ TTH** (part of `rhash`) are not available for automatic checksum comparison
 * **Bencode** will work on `.torrent` files only
-* For the *Adler-32** calculation, a python script called `adler32.py` will be created in **Checksum**'s cache directory
+* For the **Adler-32** calculation, a python script called `adler32.py` will be created in **Checksum**'s cache directory
 
 ## Functionality
 * default algorithm: SHA-256
