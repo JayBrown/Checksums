@@ -4,7 +4,8 @@
 # Checksums (shell script version)
 
 # minimum compatibility: native macOS checksum algorithms
-# for the extended algorithms, e.g. SHA-3, please install the rhash program
+# for the extended algorithms, e.g. SHA-3, please install the rhash CLI
+# for Bencode support, please install the transmission CLI
 
 LANG=en_US.UTF-8
 export PATH=/usr/local/bin:$PATH
