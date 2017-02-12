@@ -1,8 +1,8 @@
 ![Checksums-platform-macos](https://img.shields.io/badge/platform-macOS-lightgrey.svg)
 ![Checksums-code-shell](https://img.shields.io/badge/code-shell-yellow.svg)
-[![Checksums-depend-rhash](https://img.shields.io/badge/dependency-rhash%201.7.1-green.svg)](https://github.com/rhash/RHash)
+[![Checksums-depend-rhash](https://img.shields.io/badge/dependency-rhash%201.3.4-green.svg)](https://github.com/rhash/RHash)
 [![Checksums-depend-transm](https://img.shields.io/badge/dependency-transmission%202.9.2-green.svg)](https://github.com/transmission/transmission-releases)
-[![Checksums-depend-tnote](https://img.shields.io/badge/dependency-terminal--notifier%201.3.4-green.svg)](https://github.com/alloy/terminal-notifier)
+[![Checksums-depend-tnote](https://img.shields.io/badge/dependency-terminal--notifier%201.7.1-green.svg)](https://github.com/alloy/terminal-notifier)
 [![Checksums-license](http://img.shields.io/badge/license-MIT+-blue.svg)](https://github.com/JayBrown/Checksums/blob/master/license.md)
 
 # Checksums <img src="https://github.com/JayBrown/Checksums/blob/master/img/jb-img.png" height="20px"/>
