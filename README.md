@@ -98,4 +98,6 @@ More information: [transmission](https://github.com/transmission/transmission-re
 
 ![checksum-verified](https://github.com/JayBrown/Checksums/blob/master/img/checksums-verify.png)
 
+![checksum-verified](https://github.com/JayBrown/Checksums/blob/master/img/checksums-fail.png)
+
 ![checksum-algorithms](https://github.com/JayBrown/Checksums/blob/master/img/checksums-other.png)
