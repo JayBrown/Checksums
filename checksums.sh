@@ -319,7 +319,7 @@ EOT)
 				exit # ALT: continue
 			elif [[ "$SFV_CHOICE" == "SHA-512" ]] ; then
 				# create SHA-256 checksums file
-				notify "⚠️ Please wait!" "Creating SHA-256 checksums file…"
+				notify "⚠️ Please wait!" "Creating SHA-512 checksums file…"
 				cd "$FILEPATH"
 				FILES=$(find * -maxdepth 1 -type f)
 				echo "$FILES" | while read -r FILE
