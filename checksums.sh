@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Checksums v1.3.0
+# Checksums v1.3.1
 # Checksums (shell script version)
 
 # minimum compatibility: native macOS checksum algorithms
@@ -10,7 +10,7 @@
 LANG=en_US.UTF-8
 export PATH=/usr/local/bin:$PATH
 ACCOUNT=$(/usr/bin/id -un)
-CURRENT_VERSION="1.30"
+CURRENT_VERSION="1.31"
 
 # clipboard checksum parsing
 cscn () {
@@ -411,7 +411,7 @@ Checksum [$CS_CHOICE]: $FILESUM"
 					fi
 				fi
 			fi
-		elif [[ "$CS_TYPE" == "md" ]] && [[ "$EXTD" == "rh" ]] ; then
+		elif [[ "$CS_TYPE" == "md" ]] && [[ "$EXTD" == "rh"* ]] ; then
 			FILESUM=$(/sbin/md5 -q "$FILEPATH")
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 				STATUS="✅ Success"
@@ -595,7 +595,7 @@ Checksum [$CS_CHOICE]: $FILESUM"
 				ALGORITHM="SHA-224"
 				FILESUM="💣 n/a"
 			fi
-		elif [[ "$CS_TYPE" == "224" ]] && [[ "$EXTD" == "rh" ]] ; then
+		elif [[ "$CS_TYPE" == "224" ]] && [[ "$EXTD" == "rh"* ]] ; then
 			FILESUM=$(/usr/bin/shasum -a 224 "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 				ALGORITHM="SHA-224"
@@ -623,7 +623,7 @@ Checksum [$CS_CHOICE]: $FILESUM"
 			STATUS="❌ Failed"
 			FILESUM="💣 n/a"
 		fi
-		elif [[ "$CS_TYPE" == "256" ]] && [[ "$EXTD" == "rh" ]] ; then
+		elif [[ "$CS_TYPE" == "256" ]] && [[ "$EXTD" == "rh"* ]] ; then
 			FILESUM=$(/usr/bin/shasum -a 256 "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 				ALGORITHM="SHA-256"
@@ -675,7 +675,7 @@ Checksum [$CS_CHOICE]: $FILESUM"
 				STATUS="❌ Failed"
 				FILESUM="💣 n/a"
 			fi
-		elif [[ "$CS_TYPE" == "384" ]] && [[ "$EXTD" == "rh" ]] ; then
+		elif [[ "$CS_TYPE" == "384" ]] && [[ "$EXTD" == "rh"* ]] ; then
 			FILESUM=$(/usr/bin/shasum -a 384 "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 				ALGORITHM="SHA-384"
@@ -703,7 +703,7 @@ Checksum [$CS_CHOICE]: $FILESUM"
 				STATUS="❌ Failed"
 				FILESUM="💣 n/a"
 			fi
-		elif [[ "$CS_TYPE" == "512" ]] && [[ "$EXTD" == "rh" ]] ; then
+		elif [[ "$CS_TYPE" == "512" ]] && [[ "$EXTD" == "rh"* ]] ; then
 			FILESUM=$(/usr/bin/shasum -a 512 "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 				ALGORITHM="SHA-512"
