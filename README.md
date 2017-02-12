@@ -14,7 +14,7 @@ Minimum OS: **OS X 10.8**
 ### Native to macOS
 * CRC (BSD), CRC (System V), CRC (legacy 32bit)
 * CRC (ISO/IEC 8802-3:1989)
-* CRC-32
+* CRC-32 (sometimes called CRC-32b to distinguish from ethernet CRC-32)
 * MD5-length: MD4, MD5, MDC-2
 * SHA1-length: SHA-1, SHA-0, RIPEMD-160
 * SHA2-class: SHA-224, SHA-256, SHA-384, SHA-512
