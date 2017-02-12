@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Checksums v1.4.0
+# Checksums v1.5.0
 # Checksums (shell script version)
 
 # minimum compatibility: native macOS checksum algorithms
@@ -10,7 +10,7 @@
 LANG=en_US.UTF-8
 export PATH=/usr/local/bin:$PATH
 ACCOUNT=$(/usr/bin/id -un)
-CURRENT_VERSION="1.40"
+CURRENT_VERSION="1.50"
 
 # clipboard checksum parsing
 cscn () {
@@ -191,6 +191,41 @@ FILEPATH="$1" # ALT: delete for workflow
 	FILE=$(/usr/bin/basename "$FILEPATH")
 	METHOD=""
 
+	# check for .sfv file
+	if [[ "$FILE" == *".sfv" ]] ; then
+		PARENT=$(/usr/bin/dirname "$FILEPATH")
+		SFV_CONTENT=$(/bin/cat "$FILEPATH")
+		echo "Detected SFV file"
+		echo "Running check in: $PARENT"
+		echo "***"
+		echo "$SFV_CONTENT" | while read -r LINE
+		do
+			SFV_HASH=$(echo "$LINE" | /usr/bin/rev | /usr/bin/awk '{print $1}' | /usr/bin/rev)
+			SFV_NAME=$(echo "$LINE" | /usr/bin/rev | /usr/bin/awk '{print substr($0, index($0,$2))}' | /usr/bin/rev)
+			echo "Checking file: $SFV_NAME"
+			echo "Published CRC: $SFV_HASH"
+			if [[ ! -f "$PARENT/$SFV_NAME" ]] ; then
+				notify "💣 Error: missing file" "$SFV_NAME"
+				echo "Error! file is missing!"
+				echo "***"
+				continue
+			else
+				SFV_DEC=$(/usr/bin/cksum -o 3 "$PARENT/$SFV_NAME" | /usr/bin/awk '{print $1}')
+				SFV_HEX=$(printf '%x\n' "$SFV_DEC" | /usr/bin/tr '[:lower:]' '[:upper:]')
+				echo "Calculate CRC: $SFV_HEX"
+				if [[ "$SFV_HEX" == "$SFV_HASH" ]] ; then
+					notify "✅ Success" "$SFV_NAME"
+					echo "Success! Checksums match!"
+				else
+					notify "❌ Failed" "$SFV_NAME"
+					echo "Error! Checksum mismatch!"
+				fi
+				echo "***"
+			fi
+		done
+		exit # ALT: continue
+	fi
+
 	# check if bundle/directory
 	if [[ ! -f "$FILEPATH" ]] ; then
 		PATH_TYPE=$(/usr/bin/mdls -name kMDItemContentTypeTree "$FILEPATH" | /usr/bin/grep -e "bundle")
@@ -199,8 +234,45 @@ FILEPATH="$1" # ALT: delete for workflow
 			exit # ALT: continue
 		fi
 		if [[ -d "$FILEPATH" ]] ; then
-			notify "💣 Error: target is a directory" "$FILE"
-			exit # ALT: continue
+			# ask for checksums file creation
+			SFV_CHOICE=$(/usr/bin/osascript << EOT
+tell application "System Events"
+	activate
+	set theLogoPath to ((path to library folder from user domain) as text) & "Caches:local.lcars.Checksums:lcars.png"
+	set theButton to button returned of (display dialog "You have selected the directory \"" & "$FILE" & "\". Do you want to create checksums for all its files?" ¬
+		buttons {"No", "SFV", "SHA-512"} ¬
+		default button 3 ¬
+		with title "Checksums" ¬
+		with icon file theLogoPath ¬
+		giving up after 180)
+end tell
+theButton
+EOT)
+			if [[ "$SFV_CHOICE" == "No" ]] ; then
+				exit # ALT: continue
+			fi
+			if [[ "$SFV_CHOICE" == "SFV" ]] ; then
+				# create SFV checksums file
+				notify "⚠️ Please wait!" "Creating SFV checksums file…"
+				cd "$FILEPATH"
+				/usr/bin/cksum -o 3 * 2>/dev/null | while read CK SIZE FILE; do printf "%s %08X\n" "$FILE" "$CK"; done > "$FILEPATH/checksums.sfv"
+				cd $HOME
+				notify "✅ Done" "checksums.sfv"
+				exit # ALT: continue
+			elif [[ "$SFV_CHOICE" == "SHA-512" ]] ; then
+				# create SHA-256 checksums file
+				notify "⚠️ Please wait!" "Creating SHA-256 checksums file…"
+				cd "$FILEPATH"
+				FILES=$(find * -maxdepth 1 -type f)
+				echo "$FILES" | while read -r FILE
+				do
+					/usr/bin/shasum -a 512 "$FILE"
+				done > checksums.sha512
+				notify "✅ Done" "checksums.sha512"
+				exit # ALT: continue
+			else
+				exit # ALT: continue
+			fi
 		fi
 	fi
 

@@ -100,4 +100,6 @@ More information: [transmission](https://github.com/transmission/transmission-re
 
 ![checksum-verified](https://github.com/JayBrown/Checksums/blob/master/img/checksums-fail.png)
 
+![checksum-multiple](https://github.com/JayBrown/Checksums/blob/master/img/checksums-multi.png)
+
 ![checksum-algorithms](https://github.com/JayBrown/Checksums/blob/master/img/checksums-other.png)
