@@ -12,10 +12,15 @@ Minimum OS: **OS X 10.8**
 
 ## Supported algorithms
 ### Native to macOS
+* CRC (BSD), CRC (System V), CRC (legacy 32bit)
+* CRC (ISO/IEC 8802-3:1989)
 * CRC-32
 * MD5-length: MD4, MD5, MDC-2
 * SHA1-length: SHA-1, SHA-0, RIPEMD-160
 * SHA2-class: SHA-224, SHA-256, SHA-384, SHA-512
+
+### Scripted calculations
+* Adler-32 (using `python`)
 
 ### rhash
 * MD5-length: AICH, SNEFRU-128
@@ -27,12 +32,13 @@ Minimum OS: **OS X 10.8**
 * EDON-R 512, Whirlpool
 
 ### transmission
-* Bencode
+* Bencode (BitTorrent hash)
 
 ### Notes
 * **MD2** calculation produces an error with `openssl` for macOS, so it is *not enabled*
 * **AICH** and **DC++ TTH** (part of `rhash`) are not available for automatic checksum comparison
 * **Bencode** will work on `.torrent` files only
+* For the *Adler-32** calculation, a python script called `adler32.py` will be created in **Checksum**'s cache directory
 
 ## Functionality
 * default algorithm: SHA-256
@@ -83,7 +89,7 @@ More information: [rhash](https://github.com/rhash/RHash)
 More information: [transmission](https://github.com/transmission/transmission-releases)
 
 * install using [Homebrew](http://brew.sh) with `brew install transmission` (or with a similar manager)
-* **Checksum** will use only the `transmission-show` binary
+* **Checksums** will use only the `transmission-show` binary
 
 ## Screengrabs
 ![checksum-main](https://github.com/JayBrown/Checksums/blob/master/img/checksums-main.png)

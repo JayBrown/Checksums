@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Checksums v1.3.1
+# Checksums v1.4.0
 # Checksums (shell script version)
 
 # minimum compatibility: native macOS checksum algorithms
@@ -10,7 +10,7 @@
 LANG=en_US.UTF-8
 export PATH=/usr/local/bin:$PATH
 ACCOUNT=$(/usr/bin/id -un)
-CURRENT_VERSION="1.31"
+CURRENT_VERSION="1.40"
 
 # clipboard checksum parsing
 cscn () {
@@ -18,7 +18,10 @@ cscn () {
 		( *[!0-9A-Fa-f]* | "" ) echo "false" ;;
 		( * )
 			case ${#1} in
+				( 5 ) echo "cksum-unix" ;;
 				( 8 ) echo "crc" ;;
+				( 9 ) echo "cksum-modern" ;;
+				( 10 ) echo "cksum3" ;;
 				( 32 ) echo "md" ;;
 				( 40 ) echo "sha" ;;
 				( 56 ) echo "224" ;;
@@ -35,7 +38,10 @@ cscx () {
 		( *[!0-9A-Fa-f]* | "" ) echo "false" ;;
 		( * )
 			case ${#1} in
+				( 5 ) echo "cksum-unix" ;;
 				( 8 ) echo "crc" ;;
+				( 9 ) echo "cksum-modern" ;;
+				( 10 ) echo "cksum3" ;;
 				( 32 ) echo "md" ;;
 				( 40 ) echo "sha" ;;
 				( 48 ) echo "tiger" ;;
@@ -47,7 +53,6 @@ cscx () {
 			esac
 	esac
 }
-
 
 # notify function
 notify () {
@@ -113,6 +118,38 @@ if [[ ! -e "$ICON_LOC" ]] ; then
 fi
 if [[ -e "$CACHE_DIR/lcars.base64" ]] ; then
 	rm -rf "$CACHE_DIR/lcars.base64"
+fi
+
+# bin directory for scripted checksum calculations
+BIN_DIR="$CACHE_DIR/bin"
+if [[ ! -e "$BIN_DIR" ]] ; then
+	mkdir -p "$BIN_DIR"
+fi
+
+# check if Adler-32 script exists; create & chmod, if necessary
+if [[ ! -f "$BIN_DIR/adler32.py" ]] ; then
+	ADLERSCRIPT=$(/bin/cat << 'EOT'
+#!/usr/bin/env python
+'''Calculate Adler-32 checksum for file'''
+
+BLOCKSIZE=256*1024*1024
+import sys
+from zlib import adler32
+
+for fname in sys.argv[1:]:
+	asum = 1
+	with open(fname) as f:
+		while True:
+			data = f.read(BLOCKSIZE)
+			if not data:
+				break
+			asum = adler32(data, asum)
+			if asum < 0:
+				asum += 2**32
+
+print hex(asum)[2:10].zfill(8).lower(), fname
+EOT)
+	echo "$ADLERSCRIPT" > "$BIN_DIR/adler32.py" && /bin/chmod +x "$BIN_DIR/adler32.py"
 fi
 
 # look for terminal-notifier
@@ -217,7 +254,7 @@ EOT)
 			if [[ "$EXTD" == "native" ]] ; then
 				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
 tell application "System Events"
-	set theList to {"CRC-32","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512"}
+	set theList to {"Adler-32","CRC (BSD)","CRC (System V)","CRC (legacy 32bit)","CRC (ISO/IEC 8802-3)","CRC-32","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512"}
 	set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
 end tell
 theResult
@@ -225,7 +262,7 @@ EOT)
 			elif [[ "$EXTD" == "rh" ]] ; then
 				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
 tell application "System Events"
-set theList to {"AICH","BTIH","CRC-32","DC++ TTH","ED2K","EDON-R 256","EDON-R 512","GOST","GOST CryptoPro","HAS-160","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512","SHA3-224","SHA3-256","SHA3-384","SHA3-512","SNEFRU-128","SNEFRU-256","Tiger","Whirlpool"}
+set theList to {"Adler-32","AICH","BTIH","CRC (BSD)","CRC (System V)","CRC (legacy 32bit)","CRC (ISO/IEC 8802-3)","CRC-32","DC++ TTH","ED2K","EDON-R 256","EDON-R 512","GOST","GOST CryptoPro","HAS-160","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512","SHA3-224","SHA3-256","SHA3-384","SHA3-512","SNEFRU-128","SNEFRU-256","Tiger","Whirlpool"}
 set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
 end tell
 theResult
@@ -233,7 +270,7 @@ EOT)
 			elif [[ "$EXTD" == "rh-bc" ]] ; then
 				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
 tell application "System Events"
-set theList to {"AICH","Bencode","BTIH","CRC-32","DC++ TTH","ED2K","EDON-R 256","EDON-R 512","GOST","GOST CryptoPro","HAS-160","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512","SHA3-224","SHA3-256","SHA3-384","SHA3-512","SNEFRU-128","SNEFRU-256","Tiger","Whirlpool"}
+set theList to {"Adler-32","AICH","Bencode","BTIH","CRC (BSD)","CRC (System V)","CRC (legacy 32bit)","CRC (ISO/IEC 8802-3)","CRC-32","DC++ TTH","ED2K","EDON-R 256","EDON-R 512","GOST","GOST CryptoPro","HAS-160","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512","SHA3-224","SHA3-256","SHA3-384","SHA3-512","SNEFRU-128","SNEFRU-256","Tiger","Whirlpool"}
 set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
 end tell
 theResult
@@ -241,7 +278,7 @@ EOT)
 			elif [[ "$EXTD" == "bc" ]] ; then
 				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
 tell application "System Events"
-	set theList to {"Bencode","CRC-32","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512"}
+	set theList to {"Adler-32","Bencode","CRC (BSD)","CRC (System V)","CRC (legacy 32bit)","CRC (ISO/IEC 8802-3)","CRC-32","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512"}
 	set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
 end tell
 theResult
@@ -266,7 +303,10 @@ EOT)
 				FILESUM=$(/usr/bin/openssl dgst -ripemd160 "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
 
 			elif [[ "$HA_CHOICE" == "CRC-32" ]] ; then
-				FILESUM=$(/usr/bin/crc32 "$FILEPATH")
+				FILESUM=$(/usr/bin/crc32 -file "$FILEPATH")
+
+			elif [[ "$HA_CHOICE" == "Adler-32" ]] ; then
+				FILESUM=$(/usr/bin/python "$BIN_DIR/adler32.py" "$FILEPATH" | /usr/bin/awk '{print $1}')
 
 			elif [[ "$HA_CHOICE" == "SHA-0" ]] ; then
 				FILESUM=$(/usr/bin/openssl dgst -sha "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
@@ -276,6 +316,18 @@ EOT)
 
 			elif [[ "$HA_CHOICE" == "MD4" ]] ; then
 				FILESUM=$(/usr/bin/openssl dgst -md4 "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
+
+			elif [[ "$HA_CHOICE" == "CRC (ISO/IEC 8802-3)" ]] ; then
+				FILESUM=$(/usr/bin/cksum "$FILEPATH" | /usr/bin/awk '{print $1}')
+
+			elif [[ "$HA_CHOICE" == "CRC (legacy 32bit)" ]] ; then
+				FILESUM=$(/usr/bin/cksum -o 3 "$FILEPATH" | /usr/bin/awk '{print $1}')
+
+			elif [[ "$HA_CHOICE" == "CRC (BSD)" ]] ; then
+				FILESUM=$(/usr/bin/cksum -o 1 "$FILEPATH" | /usr/bin/awk '{print $1}')
+
+			elif [[ "$HA_CHOICE" == "CRC (System V)" ]] ; then
+				FILESUM=$(/usr/bin/cksum -o 2 "$FILEPATH" | /usr/bin/awk '{print $1}')
 
 			fi
 
@@ -378,14 +430,54 @@ Checksum [$CS_CHOICE]: $FILESUM"
 
 		# clipboard has an apparent checksum
 
-		# calculate CRC-32
-		if [[ "$CS_TYPE" == "crc" ]] ; then
-			ALGORITHM="CRC-32"
-			FILESUM=$(/usr/bin/crc32 "$FILEPATH")
+		# calculate BSD/Unix & legacy CRC checksums
+		if [[ "$CS_TYPE" == "cksum-unix" ]] ; then
+			FILESUM=$(/usr/bin/cksum -o 1 "$FILEPATH" | /usr/bin/awk '{print $1}')
+			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+				STATUS="✅ Success"
+				ALGORITHM="CRC (BSD)"
+			else
+				FILESUM=$(/usr/bin/cksum -o 2 "$FILEPATH" | /usr/bin/awk '{print $1}')
+				if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+					STATUS="✅ Success"
+					ALGORITHM="CRC (System V)"
+				else
+					STATUS="❌ Failed"
+					ALGORITHM="Legacy Unix CRC class"
+				fi
+			fi
+		elif [[ "$CS_TYPE" == "cksum3" ]] ; then
+			ALGORITHM="CRC (legacy 32bit)"
+			FILESUM=$(/usr/bin/cksum -o 3 "$FILEPATH" | /usr/bin/awk '{print $1}')
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 				STATUS="✅ Success"
 			else
 				STATUS="❌ Failed"
+			fi
+		elif [[ "$CS_TYPE" == "cksum-modern" ]] ; then
+			ALGORITHM="CRC (ISO/IEC 8802-3)"
+			FILESUM=$(/usr/bin/cksum "$FILEPATH" | /usr/bin/awk '{print $1}')
+			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+				STATUS="✅ Success"
+			else
+				STATUS="❌ Failed"
+			fi
+
+		# calculate CRC-32 & Adler-32
+		elif [[ "$CS_TYPE" == "crc" ]] ; then
+			FILESUM=$(/usr/bin/crc32 -file "$FILEPATH")
+			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+				ALGORITHM="CRC-32"
+				STATUS="✅ Success"
+			else
+				FILESUM=$(/usr/bin/python "$BIN_DIR/adler32.py" "$FILEPATH" | /usr/bin/awk '{print $1}')
+				if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+					ALGORITHM="Adler-32"
+					STATUS="✅ Success"
+				else
+					ALGORITHM="CRC/Adler-32"
+					STATUS="❌ Failed"
+				fi
 			fi
 
 		# calculate MD-class: MD5, MDC-2, MD4
