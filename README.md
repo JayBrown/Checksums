@@ -57,7 +57,8 @@ Minimum OS: **OS X 10.8**
 
 ### Future
 * automatic digest verification: support for `.md5` digests
-* digest creation from directory contents: option for SFV will be primary to SHA-512
+* digest creation from directory contents: downgrade from SHA-512 to SHA-256
+* digest creation from directory contents: option for SFV will be primary over SHA
 * **mhash** integration via `py-mhash` (unsure)
 
 ## Installation
