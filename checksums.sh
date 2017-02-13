@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Checksums v1.5.0
+# Checksums v1.5.1
 # Checksums (shell script version)
 
 # minimum compatibility: native macOS checksum algorithms
@@ -10,7 +10,7 @@
 LANG=en_US.UTF-8
 export PATH=/usr/local/bin:$PATH
 ACCOUNT=$(/usr/bin/id -un)
-CURRENT_VERSION="1.50"
+CURRENT_VERSION="1.51"
 
 # clipboard checksum parsing
 cscn () {
@@ -214,7 +214,9 @@ if [[ "$FILE" == *".sfv" ]] ; then
 	echo "Detected SFV file"
 	echo "Running check in: $PARENT"
 	echo "***"
-	echo "$SFV_CONTENT" | while read -r LINE
+	ERROR=""
+	ERROR_COUNT="0"
+	while read -r LINE
 	do
 		SFV_HASH=$(echo "$LINE" | /usr/bin/rev | /usr/bin/awk '{print $1}' | /usr/bin/rev)
 		SFV_NAME=$(echo "$LINE" | /usr/bin/rev | /usr/bin/awk '{print substr($0, index($0,$2))}' | /usr/bin/rev)
@@ -224,21 +226,34 @@ if [[ "$FILE" == *".sfv" ]] ; then
 			notify "💣 Error: missing file" "$SFV_NAME"
 			echo "Error! File is missing!"
 			echo "***"
+			ERROR="true"
+			((ERROR_COUNT++))
 			continue
 		else
-			SFV_DEC=$(/usr/bin/cksum -o 3 "$PARENT/$SFV_NAME" | /usr/bin/awk '{print $1}')
-			SFV_HEX=$(printf '%x\n' "$SFV_DEC" | /usr/bin/tr '[:lower:]' '[:upper:]')
+			SFV_HEX_ALL=$(/usr/bin/cksum -o 3 "$PARENT/$SFV_NAME" 2>/dev/null | while read CK SIZE FILE; do printf "%s %08X\n" "$FILE" "$CK"; done)
+			SFV_HEX=$(echo "$SFV_HEX_ALL" | /usr/bin/rev | /usr/bin/awk '{print $1}' | /usr/bin/rev)
 			echo "Calculate CRC: $SFV_HEX"
 			if [[ "$SFV_HEX" == "$SFV_HASH" ]] ; then
-				notify "✅ Success" "$SFV_NAME"
 				echo "Success! Checksums match!"
 			else
-				notify "❌ Failed" "$SFV_NAME"
+				notify "❌ Failed: checksum mismatch" "$SFV_NAME"
 				echo "Error! Checksum mismatch!"
+				ERROR="true"
+				((ERROR_COUNT++))
 			fi
 			echo "***"
 		fi
-	done
+	done < <(echo "$SFV_CONTENT")
+	if [[ "$ERROR" == "true" ]] ; then
+		if [[ "$ERROR_COUNT" -gt 1 ]] ; then
+			FILE_SIG="files"
+		else
+			FILE_SIG="file"
+		fi
+		notify "❌ Failed" "$ERROR_COUNT $FILE_SIG had errors!"
+	else
+		notify "✅ Success" "All checksums match!"
+	fi
 	exit # ALT: continue
 
 elif [[ "$FILE" == *".sha512" ]] || [[ "$FILE" == *".sha256" ]] ; then
@@ -255,7 +270,9 @@ elif [[ "$FILE" == *".sha512" ]] || [[ "$FILE" == *".sha256" ]] ; then
 	echo "Detected SHA$SHA_OPTION file"
 	echo "Running check in: $PARENT"
 	echo "***"
-	echo "$SHA_CONTENT" | while read -r LINE
+	ERROR=""
+	ERROR_COUNT="0"
+	while read -r LINE
 	do
 		SHA_HASH=$(echo "$LINE" | /usr/bin/awk '{print $1}')
 		SHA_NAME=$(echo "$LINE" | /usr/bin/awk '{print substr($0, index($0,$2))}')
@@ -265,20 +282,33 @@ elif [[ "$FILE" == *".sha512" ]] || [[ "$FILE" == *".sha256" ]] ; then
 			notify "💣 Error: missing file" "$SHA_NAME"
 			echo "Error! File is missing!"
 			echo "***"
+			ERROR="true"
+			((ERROR_COUNT++))
 			continue
 		else
 			SHA_CALC=$(/usr/bin/shasum -a "$SHA_OPTION" "$PARENT/$SHA_NAME" | /usr/bin/awk '{print $1}')
 			echo "Calculate SHA: $SHA_CALC"
 			if [[ "$SHA_CALC" == "$SHA_HASH" ]] ; then
-				notify "✅ Success" "$SHA_NAME"
 				echo "Success! Checksums match!"
 			else
-				notify "❌ Failed" "$SHA_NAME"
+				notify "❌ Failed: checksum mismatch" "$SHA_NAME"
 				echo "Error! Checksum mismatch!"
+				ERROR="true"
+				((ERROR_COUNT++))
 			fi
 			echo "***"
 		fi
-	done
+	done < <(echo "$SHA_CONTENT")
+	if [[ "$ERROR" == "true" ]] ; then
+		if [[ "$ERROR_COUNT" -gt 1 ]] ; then
+			FILE_SIG="files"
+		else
+			FILE_SIG="file"
+		fi
+		notify "❌ Failed" "$ERROR_COUNT $FILE_SIG had errors!"
+	else
+		notify "✅ Success" "All checksums match!"
+	fi
 	exit # ALT: continue
 
 else
@@ -291,6 +321,11 @@ else
 			exit # ALT: continue
 		fi
 		if [[ -d "$FILEPATH" ]] ; then
+			CONTENT_LIST=$(find "$FILEPATH" -type f -not -path '*/\.*')
+			if [[ "$CONTENT_LIST" == "" ]] ; then
+				notify "💣 Error: empty directory" "$FILE"
+				exit # ALT: continue
+			fi
 			METHOD="digest"
 			# ask for checksums file creation
 			SFV_CHOICE=$(/usr/bin/osascript << EOT
