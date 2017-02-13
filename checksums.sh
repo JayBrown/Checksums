@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Checksums v1.5.1
+# Checksums v1.5.2
 # Checksums (shell script version)
 
 # minimum compatibility: native macOS checksum algorithms
@@ -10,7 +10,7 @@
 LANG=en_US.UTF-8
 export PATH=/usr/local/bin:$PATH
 ACCOUNT=$(/usr/bin/id -un)
-CURRENT_VERSION="1.51"
+CURRENT_VERSION="1.52"
 
 # clipboard checksum parsing
 cscn () {
@@ -205,7 +205,7 @@ FILEPATH="$1" # ALT: delete for workflow
 FILE=$(/usr/bin/basename "$FILEPATH")
 METHOD=""
 
-# check for .sfv or .sha* files
+# verify .sfv digest
 if [[ "$FILE" == *".sfv" ]] ; then
 	METHOD="digest"
 	notify "⚠️ Please wait!" "Verifying checksums in SFV file…"
@@ -256,6 +256,57 @@ if [[ "$FILE" == *".sfv" ]] ; then
 	fi
 	exit # ALT: continue
 
+# verify .md5 digest
+elif [[ "$FILE" == *".md5" ]] ; then
+	METHOD="digest"
+	notify "⚠️ Please wait!" "Verifying checksums in MD5 file…"
+	PARENT=$(/usr/bin/dirname "$FILEPATH")
+	MD5_CONTENT=$(/bin/cat "$FILEPATH")
+	echo "Detected MD5 file"
+	echo "Running check in: $PARENT"
+	echo "***"
+	ERROR=""
+	ERROR_COUNT="0"
+	while read -r LINE
+	do
+		MD5_HASH=$(echo "$LINE" | /usr/bin/awk '{print $1}')
+		MD5_NAME=$(echo "$LINE" | /usr/bin/awk '{print substr($0, index($0,$2))}')
+		echo "Checking file: $MD5_NAME"
+		echo "Published CRC: $MD5_HASH"
+		if [[ ! -f "$PARENT/$MD5_NAME" ]] ; then
+			notify "💣 Error: missing file" "$MD5_NAME"
+			echo "Error! File is missing!"
+			echo "***"
+			ERROR="true"
+			((ERROR_COUNT++))
+			continue
+		else
+			MD5_CALC=$(/sbin/md5 -q "$PARENT/$MD5_NAME")
+			echo "Calculate MD5: $MD5_CALC"
+			if [[ "$MD5_CALC" == "$MD5_HASH" ]] ; then
+				echo "Success! Checksums match!"
+			else
+				notify "❌ Failed: checksum mismatch" "$MD5_NAME"
+				echo "Error! Checksum mismatch!"
+				ERROR="true"
+				((ERROR_COUNT++))
+			fi
+			echo "***"
+		fi
+	done < <(echo "$MD5_CONTENT")
+	if [[ "$ERROR" == "true" ]] ; then
+		if [[ "$ERROR_COUNT" -gt 1 ]] ; then
+			FILE_SIG="files"
+		else
+			FILE_SIG="file"
+		fi
+		notify "❌ Failed" "$ERROR_COUNT $FILE_SIG had errors!"
+	else
+		notify "✅ Success" "All checksums match!"
+	fi
+	exit # ALT: continue
+
+# verify .sha256 or .sha512 digest
 elif [[ "$FILE" == *".sha512" ]] || [[ "$FILE" == *".sha256" ]] ; then
 	METHOD="digest"
 	EXTENSION="${FILE##*.}"
@@ -333,7 +384,7 @@ tell application "System Events"
 	activate
 	set theLogoPath to ((path to library folder from user domain) as text) & "Caches:local.lcars.Checksums:lcars.png"
 	set theButton to button returned of (display dialog "You have selected the directory \"" & "$FILE" & "\". Do you want to create checksums for all its files?" ¬
-		buttons {"No", "SFV", "SHA-512"} ¬
+		buttons {"No", "SHA-256", "SFV"} ¬
 		default button 3 ¬
 		with title "Checksums" ¬
 		with icon file theLogoPath ¬
@@ -352,16 +403,16 @@ EOT)
 				cd $HOME
 				notify "✅ Done" "checksums.sfv"
 				exit # ALT: continue
-			elif [[ "$SFV_CHOICE" == "SHA-512" ]] ; then
+			elif [[ "$SFV_CHOICE" == "SHA-256" ]] ; then
 				# create SHA-256 checksums file
-				notify "⚠️ Please wait!" "Creating SHA-512 checksums file…"
+				notify "⚠️ Please wait!" "Creating SHA-256 checksums file…"
 				cd "$FILEPATH"
 				FILES=$(find * -maxdepth 1 -type f)
 				echo "$FILES" | while read -r FILE
 				do
-					/usr/bin/shasum -a 512 "$FILE"
+					/usr/bin/shasum -a 256 "$FILE"
 				done > checksums.sha512
-				notify "✅ Done" "checksums.sha512"
+				notify "✅ Done" "checksums.sha256"
 				cd $HOME
 				exit # ALT: continue
 			else
