@@ -362,6 +362,7 @@ EOT)
 					/usr/bin/shasum -a 512 "$FILE"
 				done > checksums.sha512
 				notify "✅ Done" "checksums.sha512"
+				cd $HOME
 				exit # ALT: continue
 			else
 				exit # ALT: continue
