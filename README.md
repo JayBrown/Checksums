@@ -56,6 +56,7 @@ Minimum OS: **OS X 10.8**
 * verifies `.sfv`, `.md5`, `.sha256` & `.sha512` checksum digests
 
 ### Future
+* write last clipboard checksum to preferences file, and ignore checksum in consecutive run
 * **mhash** integration via `py-mhash` (unsure)
 
 ## Installation
