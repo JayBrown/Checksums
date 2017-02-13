@@ -46,12 +46,14 @@ Minimum OS: **OS X 10.8**
 * calculates file size (output: B, MB, MiB)
 * copies all information incl. filename to clipboard
 * parses clipboard content for possible checksums and auto-compares to calculated checksum
-* lots of additional checksum options, if the user has installed `rhash`
-* BitTorrent file hash calculation is possible, if the user has installed `transmission`
+* lots of additional checksum options, if the user has installed the `rhash` CLI
+* BitTorrent file hash calculation is possible, if the user has installed the `transmission` CLI
 * creates `.sfv` and `.sha512` checksum digests for all files in a selected directory
 * verifies `.sfv`, `.sha256` & `.sha512` checksum digests
 
 ### Future
+* automatic digest verification: support for `.md5` digests
+* digest creation from directory contents: option for SFV will be primary to SHA-512
 * **mhash** integration via `py-mhash` (unsure)
 
 ## Installation
