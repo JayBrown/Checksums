@@ -8,6 +8,10 @@
 # Checksums <img src="https://github.com/JayBrown/Checksums/blob/master/img/jb-img.png" height="20px"/>
 **macOS workflow and shell script to calculate or automatically verify file checksums**
 
+Do you still need to launch third-party software to create or verify checksums? Do you need to copy *and* paste a checksum to verify it? Do you still use the command line to calculate checksums? Do you verify checksums visually? Do you need to publish file size information, too? Do you have several applications for different tasks? Is there a checksum created with an unusual algorithm you can't verify?
+
+No need for additional tools anymore. Do all the operations you would need (in most cases!) directly from the Finder, thanks to the power of Apple's macOS Services.
+
 Minimum OS: **OS X 10.8**
 
 ## Supported algorithms
@@ -22,7 +26,7 @@ Minimum OS: **OS X 10.8**
 ### Native calculations (scripted)
 * Adler-32 (using `adler32` from `zlib`)
 
-### rhash
+### rhash [optional]
 * MD5-length: AICH, SNEFRU-128
 * DC++ TTH
 * SHA1-length: BTIH, HAS-160
@@ -31,7 +35,7 @@ Minimum OS: **OS X 10.8**
 * EDON-R 256, GOST, GOST CryptoPro, SNEFRU-256
 * EDON-R 512, Whirlpool
 
-### transmission
+### transmission [optional]
 * Bencode (BitTorrent hash)
 
 ### Notes
