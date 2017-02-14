@@ -49,7 +49,7 @@ Minimum OS: **OS X 10.8**
 * calculates file size (output: B, MB, MiB)
 * copies all information incl. filename to clipboard
 * parses clipboard content for possible checksums and auto-compares to calculated checksum
-* ignores checksum in clipboard during consecutive run after a previous checksum failure
+* ignores clipboard checksum if the same value was already checked in the previous run
 * lots of additional checksum options, e.g. GOST, if the user has installed the `rhash` CLI
 * BitTorrent file hash calculation is possible, if the user has installed the `transmission` CLI
 * CRC-32C hash calculation is possible, if the user has installed the `gsutil` python CLI
