@@ -52,7 +52,7 @@ Minimum OS: **OS X 10.8**
 * ignores checksum in clipboard during consecutive run after a previous checksum failure
 * lots of additional checksum options, e.g. GOST, if the user has installed the `rhash` CLI
 * BitTorrent file hash calculation is possible, if the user has installed the `transmission` CLI
-* CRC-32C has calculation is possible, if the user has installed the `gsutil` python CLI
+* CRC-32C hash calculation is possible, if the user has installed the `gsutil` python CLI
 * creates `.sfv`, `.md5`, `.sha1`, `.sha256`, or `.sha512` checksum digests for all files in a selected directory (recursive, without invisibles)
 * verifies `.sfv`, `.md5`, `.sha1`, `.sha256`, or `.sha512` checksum digests for single files or directories
 * compares two files using MD5
@@ -60,9 +60,9 @@ Minimum OS: **OS X 10.8**
 
 ### Notes
 * **MD2** calculation produces an error with `openssl` for macOS, so it is *not enabled*
-* **AICH** and **DC++ TTH** (part of `rhash`) are not available for automatic checksum comparison
+* **AICH** and **DC++ TTH** (part of `rhash`) are not (yet?) available for automatic checksum comparison
 * **Bencode** will work on `.torrent` files only
-* For the **Adler-32** calculation, a python script called `adler32.py` will be created in **Checksum**'s cache directory
+* For the **Adler-32** calculation, a python script called `adler32.py` will be created in `$HOME/Library/Caches/local.lcars.Checksums/bin`
 
 ### Future
 * **mhash** integration via `py-mhash` (unsure)
