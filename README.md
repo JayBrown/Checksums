@@ -27,11 +27,11 @@ Minimum OS: **OS X 10.8**
 ### Native calculations (scripted)
 * Adler-32 (using `adler32` from `zlib`)
 
-### Other
-#### gsutil [optional]
+### Other [optional]
+#### gsutil
 * CRC-32C
 
-#### rhash [optional]
+#### rhash
 * MD5-length: AICH, SNEFRU-128
 * DC++ TTH
 * SHA1-length: BTIH, HAS-160
@@ -40,7 +40,7 @@ Minimum OS: **OS X 10.8**
 * EDON-R 256, GOST, GOST CryptoPro, SNEFRU-256
 * EDON-R 512, Whirlpool
 
-#### transmission [optional]
+#### transmission
 * Bencode (BitTorrent hash)
 
 ## Functionality
