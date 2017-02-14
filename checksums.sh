@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Checksums v1.5.2
+# Checksums v1.6.0
 # Checksums (shell script version)
 
 # minimum compatibility: native macOS checksum algorithms
@@ -10,7 +10,10 @@
 LANG=en_US.UTF-8
 export PATH=/usr/local/bin:$PATH
 ACCOUNT=$(/usr/bin/id -un)
-CURRENT_VERSION="1.52"
+CURRENT_VERSION="1.60"
+
+# set -x
+# PS4=':$LINENO+'
 
 # clipboard checksum parsing
 cscn () {
@@ -18,6 +21,7 @@ cscn () {
 		( *[!0-9A-Fa-f]* | "" ) echo "false" ;;
 		( * )
 			case ${#1} in
+				( 4 ) echo "cksum-unix" ;;
 				( 5 ) echo "cksum-unix" ;;
 				( 8 ) echo "crc" ;;
 				( 9 ) echo "cksum-modern" ;;
@@ -38,6 +42,7 @@ cscx () {
 		( *[!0-9A-Fa-f]* | "" ) echo "false" ;;
 		( * )
 			case ${#1} in
+				( 4 ) echo "cksum-unix" ;;
 				( 5 ) echo "cksum-unix" ;;
 				( 8 ) echo "crc" ;;
 				( 9 ) echo "cksum-modern" ;;
@@ -104,7 +109,6 @@ EOT)
 	exit
 fi
 
-
 # icon & cache dir
 ICON64="iVBORw0KGgoAAAANSUhEUgAAAIwAAACMEAYAAAD+UJ19AAACYElEQVR4nOzUsW1T
 URxH4fcQSyBGSPWQrDRZIGUq2IAmJWyRMgWRWCCuDAWrGDwAkjsk3F/MBm6OYlnf
@@ -138,6 +142,13 @@ fi
 BIN_DIR="$CACHE_DIR/bin"
 if [[ ! -e "$BIN_DIR" ]] ; then
 	mkdir -p "$BIN_DIR"
+fi
+
+# tmp directory / remove old temp files
+if [[ ! -e "$CACHE_DIR/tmp" ]] ; then
+	mkdir -p "$CACHE_DIR/tmp"
+else
+	rm -rf "$CACHE_DIR/tmp/"*
 fi
 
 # check if Adler-32 script exists; create & chmod, if necessary
@@ -174,7 +185,10 @@ else
 	NOTESTATUS="tn"
 fi
 
-# check if rhash and transmission-show are present
+# check for preferences file
+
+
+# check if present: rhash, transmission-show, gsutil
 RHASH=$(which rhash 2>/dev/null)
 if [[ "$RHASH" != "/"*"/rhash" ]] ; then
 	RHASH_STATUS="false"
@@ -187,14 +201,28 @@ if [[ "$TRANSM" != "/"*"/transmission-show" ]] ; then
 else
 	BENCODE="true"
 fi
-if [[ "$RHASH_STATUS" == "true" ]] && [[ "$BENCODE" == "false" ]] ; then
-	EXTD="rh"
-elif [[ "$RHASH_STATUS" == "true" ]] && [[ "$BENCODE" == "true" ]] ; then
-	EXTD="rh-bc"
-elif [[ "$RHASH_STATUS" == "false" ]] && [[ "$BENCODE" == "true" ]] ; then
-	EXTD="bc"
-elif [[ "$RHASH_STATUS" == "false" ]] && [[ "$BENCODE" == "false" ]] ; then
+GSUTIL=$(which gsutil 2>/dev/null)
+if [[ "$GSUTIL" != "/"*"/gsutil" ]] ; then
+	CASTA="false"
+else
+	CASTA="true"
+fi
+if [[ "$RHASH_STATUS" == "false" ]] && [[ "$BENCODE" == "false" ]] && [[ "$CASTA" == "false" ]] ; then
 	EXTD="native"
+elif [[ "$RHASH_STATUS" == "true" ]] && [[ "$BENCODE" == "false" ]] && [[ "$CASTA" == "false" ]] ; then
+	EXTD="rh"
+elif [[ "$RHASH_STATUS" == "true" ]] && [[ "$BENCODE" == "true" ]] && [[ "$CASTA" == "false" ]] ; then
+	EXTD="rh-bc"
+elif [[ "$RHASH_STATUS" == "true" ]] && [[ "$BENCODE" == "false" ]] && [[ "$CASTA" == "true" ]] ; then
+	EXTD="rh-ca"
+elif [[ "$RHASH_STATUS" == "true" ]] && [[ "$BENCODE" == "true" ]] && [[ "$CASTA" == "true" ]] ; then
+	EXTD="rh-bc-ca"
+elif [[ "$RHASH_STATUS" == "false" ]] && [[ "$BENCODE" == "true" ]] && [[ "$CASTA" == "false" ]] ; then
+	EXTD="bc"
+elif [[ "$RHASH_STATUS" == "false" ]] && [[ "$BENCODE" == "true" ]] && [[ "$CASTA" == "true" ]] ; then
+	EXTD="bc-ca"
+elif [[ "$RHASH_STATUS" == "false" ]] && [[ "$BENCODE" == "false" ]] && [[ "$CASTA" == "true" ]] ; then
+	EXTD="ca"
 fi
 
 FILEPATH="$1" # ALT: delete for workflow
@@ -211,48 +239,43 @@ if [[ "$FILE" == *".sfv" ]] ; then
 	notify "⚠️ Please wait!" "Verifying checksums in SFV file…"
 	PARENT=$(/usr/bin/dirname "$FILEPATH")
 	SFV_CONTENT=$(/bin/cat "$FILEPATH")
-	echo "Detected SFV file"
-	echo "Running check in: $PARENT"
-	echo "***"
 	ERROR=""
 	ERROR_COUNT="0"
 	while read -r LINE
 	do
 		SFV_HASH=$(echo "$LINE" | /usr/bin/rev | /usr/bin/awk '{print $1}' | /usr/bin/rev)
 		SFV_NAME=$(echo "$LINE" | /usr/bin/rev | /usr/bin/awk '{print substr($0, index($0,$2))}' | /usr/bin/rev)
-		echo "Checking file: $SFV_NAME"
-		echo "Published CRC: $SFV_HASH"
+		if [[ "$SFV_HASH" == "" ]] || [[ "$SFV_NAME" == "" ]] ; then
+			continue
+		fi
 		if [[ ! -f "$PARENT/$SFV_NAME" ]] ; then
-			notify "💣 Error: missing file" "$SFV_NAME"
-			echo "Error! File is missing!"
-			echo "***"
+			echo "Missing file: $SFV_NAME"
 			ERROR="true"
 			((ERROR_COUNT++))
 			continue
 		else
 			SFV_HEX_ALL=$(/usr/bin/cksum -o 3 "$PARENT/$SFV_NAME" 2>/dev/null | while read CK SIZE FILE; do printf "%s %08X\n" "$FILE" "$CK"; done)
 			SFV_HEX=$(echo "$SFV_HEX_ALL" | /usr/bin/rev | /usr/bin/awk '{print $1}' | /usr/bin/rev)
-			echo "Calculate CRC: $SFV_HEX"
-			if [[ "$SFV_HEX" == "$SFV_HASH" ]] ; then
-				echo "Success! Checksums match!"
-			else
-				notify "❌ Failed: checksum mismatch" "$SFV_NAME"
-				echo "Error! Checksum mismatch!"
+			if [[ "$SFV_HEX" != "$SFV_HASH" ]] ; then
+				echo "Checksum mismatch: $SFV_NAME"
 				ERROR="true"
 				((ERROR_COUNT++))
 			fi
-			echo "***"
 		fi
-	done < <(echo "$SFV_CONTENT")
+	done < <(echo "$SFV_CONTENT") > "$CACHE_DIR/tmp/csDig"
 	if [[ "$ERROR" == "true" ]] ; then
 		if [[ "$ERROR_COUNT" -gt 1 ]] ; then
 			FILE_SIG="files"
 		else
 			FILE_SIG="file"
 		fi
-		notify "❌ Failed" "$ERROR_COUNT $FILE_SIG had errors!"
+		/usr/bin/sort "$CACHE_DIR/tmp/csDig" -o "$CACHE_DIR/tmp/csDig"
+		notify "❌ Failed: SFV" "$ERROR_COUNT $FILE_SIG had errors!"
+		echo "Failed (SFV): $ERROR_COUNT $FILE_SIG had errors!"
+		/usr/bin/open -a TextEdit "$CACHE_DIR/tmp/csDig"
 	else
-		notify "✅ Success" "All checksums match!"
+		notify "✅ Success: SFV" "All checksums match!"
+		echo "Success (SFV): all checksums match!"
 	fi
 	exit # ALT: continue
 
@@ -262,103 +285,93 @@ elif [[ "$FILE" == *".md5" ]] ; then
 	notify "⚠️ Please wait!" "Verifying checksums in MD5 file…"
 	PARENT=$(/usr/bin/dirname "$FILEPATH")
 	MD5_CONTENT=$(/bin/cat "$FILEPATH")
-	echo "Detected MD5 file"
-	echo "Running check in: $PARENT"
-	echo "***"
 	ERROR=""
 	ERROR_COUNT="0"
 	while read -r LINE
 	do
 		MD5_HASH=$(echo "$LINE" | /usr/bin/awk '{print $1}')
 		MD5_NAME=$(echo "$LINE" | /usr/bin/awk '{print substr($0, index($0,$2))}')
-		echo "Checking file: $MD5_NAME"
-		echo "Published CRC: $MD5_HASH"
+		if [[ "$MD5_NAME" == "" ]] || [[ "$MD5_HASH" == "" ]] ; then
+			continue
+		fi
 		if [[ ! -f "$PARENT/$MD5_NAME" ]] ; then
-			notify "💣 Error: missing file" "$MD5_NAME"
-			echo "Error! File is missing!"
-			echo "***"
+			echo "Missing file: $MD5_NAME"
 			ERROR="true"
 			((ERROR_COUNT++))
 			continue
 		else
 			MD5_CALC=$(/sbin/md5 -q "$PARENT/$MD5_NAME")
-			echo "Calculate MD5: $MD5_CALC"
-			if [[ "$MD5_CALC" == "$MD5_HASH" ]] ; then
-				echo "Success! Checksums match!"
-			else
-				notify "❌ Failed: checksum mismatch" "$MD5_NAME"
-				echo "Error! Checksum mismatch!"
+			if [[ "$MD5_CALC" != "$MD5_HASH" ]] ; then
+				echo "Checksum mismatch: $MD5_NAME"
 				ERROR="true"
 				((ERROR_COUNT++))
 			fi
-			echo "***"
 		fi
-	done < <(echo "$MD5_CONTENT")
+	done < <(echo "$MD5_CONTENT") > "$CACHE_DIR/tmp/csDig"
 	if [[ "$ERROR" == "true" ]] ; then
 		if [[ "$ERROR_COUNT" -gt 1 ]] ; then
 			FILE_SIG="files"
 		else
 			FILE_SIG="file"
 		fi
-		notify "❌ Failed" "$ERROR_COUNT $FILE_SIG had errors!"
+		/usr/bin/sort "$CACHE_DIR/tmp/csDig" -o "$CACHE_DIR/tmp/csDig"
+		notify "❌ Failed: MD5" "$ERROR_COUNT $FILE_SIG had errors!"
+		echo "Failed (MD5): $ERROR_COUNT $FILE_SIG had errors!"
+		/usr/bin/open -a TextEdit "$CACHE_DIR/tmp/csDig"
 	else
-		notify "✅ Success" "All checksums match!"
+		notify "✅ Success: MD5" "All checksums match!"
+		echo "Success (MD5): all checksums match!"
 	fi
 	exit # ALT: continue
 
-# verify .sha256 or .sha512 digest
-elif [[ "$FILE" == *".sha512" ]] || [[ "$FILE" == *".sha256" ]] ; then
+# verify .sha1, .sha256 or .sha512 digest
+elif [[ "$FILE" == *".sha1" ]] || [[ "$FILE" == *".sha512" ]] || [[ "$FILE" == *".sha256" ]] ; then
 	METHOD="digest"
 	EXTENSION="${FILE##*.}"
 	SHA_OPTION=$(echo "$EXTENSION" | /usr/bin/awk -F"sha" '{print $2}')
-	if [[ "$SHA_OPTION" != "512" ]] && [[ "$SHA_OPTION" != "256" ]] ; then
+	if [[ "$SHA_OPTION" != "512" ]] && [[ "$SHA_OPTION" != "256" ]] && [[ "$SHA_OPTION" != "1" ]] ; then
 		notify "☠️ Internal error" "Something went wrong"
 		exit # ALT: continue
 	fi
 	notify "⚠️ Please wait!" "Verifying checksums in SHA$SHA_OPTION file…"
 	PARENT=$(/usr/bin/dirname "$FILEPATH")
 	SHA_CONTENT=$(/bin/cat "$FILEPATH")
-	echo "Detected SHA$SHA_OPTION file"
-	echo "Running check in: $PARENT"
-	echo "***"
 	ERROR=""
 	ERROR_COUNT="0"
 	while read -r LINE
 	do
 		SHA_HASH=$(echo "$LINE" | /usr/bin/awk '{print $1}')
 		SHA_NAME=$(echo "$LINE" | /usr/bin/awk '{print substr($0, index($0,$2))}')
-		echo "Checking file: $SHA_NAME"
-		echo "Published SHA: $SHA_HASH"
+		if [[ "$SHA_NAME" == "" ]] || [[ "$SHA_HASH" == "" ]] ; then
+			continue
+		fi
 		if [[ ! -f "$PARENT/$SHA_NAME" ]] ; then
-			notify "💣 Error: missing file" "$SHA_NAME"
-			echo "Error! File is missing!"
-			echo "***"
+			echo "Missing file: $SHA_NAME"
 			ERROR="true"
 			((ERROR_COUNT++))
 			continue
 		else
 			SHA_CALC=$(/usr/bin/shasum -a "$SHA_OPTION" "$PARENT/$SHA_NAME" | /usr/bin/awk '{print $1}')
-			echo "Calculate SHA: $SHA_CALC"
-			if [[ "$SHA_CALC" == "$SHA_HASH" ]] ; then
-				echo "Success! Checksums match!"
-			else
-				notify "❌ Failed: checksum mismatch" "$SHA_NAME"
-				echo "Error! Checksum mismatch!"
+			if [[ "$SHA_CALC" != "$SHA_HASH" ]] ; then
+				echo "Checksum mismatch: $SHA_NAME"
 				ERROR="true"
 				((ERROR_COUNT++))
 			fi
-			echo "***"
 		fi
-	done < <(echo "$SHA_CONTENT")
+	done < <(echo "$SHA_CONTENT") > "$CACHE_DIR/tmp/csDig"
 	if [[ "$ERROR" == "true" ]] ; then
 		if [[ "$ERROR_COUNT" -gt 1 ]] ; then
 			FILE_SIG="files"
 		else
 			FILE_SIG="file"
 		fi
-		notify "❌ Failed" "$ERROR_COUNT $FILE_SIG had errors!"
+		/usr/bin/sort "$CACHE_DIR/tmp/csDig" -o "$CACHE_DIR/tmp/csDig"
+		notify "❌ Failed: SHA-$SHA_OPTION" "$ERROR_COUNT $FILE_SIG had errors!"
+		echo "Failed (SHA-$SHA_OPTION): $ERROR_COUNT $FILE_SIG had errors!"
+		/usr/bin/open -a TextEdit "$CACHE_DIR/tmp/csDig"
 	else
-		notify "✅ Success" "All checksums match!"
+		notify "✅ Success: SHA-$SHA_OPTION" "All checksums match!"
+		echo "Success (SHA-$SHA_OPTION): all checksums match!"
 	fi
 	exit # ALT: continue
 
@@ -383,8 +396,8 @@ else
 tell application "System Events"
 	activate
 	set theLogoPath to ((path to library folder from user domain) as text) & "Caches:local.lcars.Checksums:lcars.png"
-	set theButton to button returned of (display dialog "You have selected the directory \"" & "$FILE" & "\". Do you want to create checksums for all its files?" ¬
-		buttons {"No", "SHA-256", "SFV"} ¬
+	set theButton to button returned of (display dialog "You have selected the directory \"" & "$FILE" & "\". How do you want to proceed?" ¬
+		buttons {"Compare Folders", "Calculate Other", "Calculate SFV"} ¬
 		default button 3 ¬
 		with title "Checksums" ¬
 		with icon file theLogoPath ¬
@@ -392,27 +405,129 @@ tell application "System Events"
 end tell
 theButton
 EOT)
-			if [[ "$SFV_CHOICE" == "No" ]] ; then
+			if [[ "$SFV_CHOICE" == "" ]] || [[ "$SFV_CHOICE" == "false" ]] ; then
 				exit # ALT: continue
 			fi
-			if [[ "$SFV_CHOICE" == "SFV" ]] ; then
-				# create SFV checksums file
+
+			# compare target folder to second one
+			if [[ "$SFV_CHOICE" == "Compare Folders" ]] ; then
+				CFOLDERPATH=$(/usr/bin/osascript << EOT
+tell application "System Events"
+	activate
+	set theStartDirectory to ((path to home folder from user domain) as text) as alias
+	set theCFolder to choose folder with prompt "Please select the second folder for comparison…" default location theStartDirectory with invisibles
+	set theCFolderPath to (POSIX path of theCFolder)
+end tell
+theCFolderPath
+EOT)
+				if [[ "$CFOLDERPATH" == "" ]] || [[ "$CFOLDERPATH" == "false" ]] ; then
+					exit # ALT: continue
+				fi
+				if [[ "$CFOLDERPATH" == "$FILEPATH" ]] ; then
+					notify "💣 Error: same directory" "${FILEPATH/$HOME/~}"
+					exit # ALT: continue
+				fi
+				notify "⚠️ Please wait!" "Scanning original directory…"
+				cd "$FILEPATH"
+				FILES=$(find * -type f -not -path '*/\.DS_Store')
+				echo "$FILES" | while read -r LINE
+				do
+					if [[ "$LINE" == "checksums.crc32" ]] ; then
+						continue
+					fi
+					FCRC=$(/usr/bin/crc32 "$LINE")
+					echo "$FCRC $LINE"
+				done > "$FILEPATH/checksums.crc32"
+				notify "⚠️ Please wait!" "Comparing directories…"
+				cd /
+				CRCDIG=$(/bin/cat "$FILEPATH/checksums.crc32")
+				ERROR=""
+				ERROR_COUNT="0"
+				while read -r LINE
+				do
+					COUNTERPART=$(echo "$LINE" | /usr/bin/awk '{print substr($0, index($0,$2))}')
+					if [[ ! -f "$CFOLDERPATH/$COUNTERPART" ]] ; then
+						ERROR="true"
+						((ERROR_COUNT++))
+						echo "Missing file: $COUNTERPART"
+					else
+						ORIGINAL_HASH=$(echo "$LINE" | /usr/bin/awk '{print $1}')
+						COUNTERHASH=$(/usr/bin/crc32 "$CFOLDERPATH/$COUNTERPART")
+						if [[ "$COUNTERHASH" != "$ORIGINAL_HASH" ]] ; then
+							ERROR="true"
+							((ERROR_COUNT++))
+							echo "Checksum mismatch: $COUNTERPART"
+						fi
+					fi
+				done < <(echo "$CRCDIG") > "$CACHE_DIR/tmp/csDirCompare"
+				rm -rf "$FILEPATH/checksums.crc32"
+				if [[ "$ERROR" == "true" ]] ; then
+					if [[ "$ERROR_COUNT" -gt 1 ]] ; then
+						FILE_SIG="files"
+					else
+						FILE_SIG="file"
+					fi
+					notify "❌ Failed: CRC-32" "$ERROR_COUNT $FILE_SIG had errors!"
+					echo "Failed (CRC-32): $ERROR_COUNT $FILE_SIG had errors!"
+					/usr/bin/sort "$CACHE_DIR/tmp/csDirCompare" -o "$CACHE_DIR/tmp/csDirCompare"
+					/usr/bin/open -a TextEdit "$CACHE_DIR/tmp/csDirCompare"
+				else
+					notify "✅ Success" "All checksums match!"
+					echo "Success: all checksums match!"
+				fi
+				exit # ALT: continue
+
+			# create SFV checksums file
+			elif [[ "$SFV_CHOICE" == "Calculate SFV" ]] ; then
 				notify "⚠️ Please wait!" "Creating SFV checksums file…"
 				cd "$FILEPATH"
-				/usr/bin/cksum -o 3 * 2>/dev/null | while read CK SIZE FILE; do printf "%s %08X\n" "$FILE" "$CK"; done > "$FILEPATH/checksums.sfv"
+				FILES=$(find * -type f -not -path '*/\.*')
+				echo "$FILES" | while read -r FILE
+				do
+					if [[ "$FILE" == *".sfv" ]] || [[ "$FILE" == *".md5" ]] || [[ "$FILE" == *".sha1" ]] || [[ "$FILE" == *".sha256" ]] || [[ "$FILE" == *".sha512" ]] || [[ "$FILE" == "checksums.crc32" ]] ; then
+						continue
+					fi
+					/usr/bin/cksum -o 3 "$FILE" 2>/dev/null | while read CK SIZE FILE; do printf "%s %08X\n" "$FILE" "$CK"; done
+				done > "$FILEPATH/checksums.sfv"
 				cd $HOME
 				notify "✅ Done" "checksums.sfv"
 				exit # ALT: continue
-			elif [[ "$SFV_CHOICE" == "SHA-256" ]] ; then
-				# create SHA-256 checksums file
-				notify "⚠️ Please wait!" "Creating SHA-256 checksums file…"
+
+			# select other digest algorithm
+			elif [[ "$SFV_CHOICE" == "Calculate Other" ]] ; then
+				DIG_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
+tell application "System Events"
+	set theList to {"MD5","SHA-1","SHA-256","SHA-512"}
+	set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
+end tell
+theResult
+EOT)
+				if [[ "$DIG_CHOICE" == "" ]] || [[ "$DIG_CHOICE" == "false" ]] ; then
+					exit # ALT: continue
+				fi
+				notify "⚠️ Please wait!" "Creating $DIG_CHOICE checksums file…"
 				cd "$FILEPATH"
-				FILES=$(find * -maxdepth 1 -type f)
-				echo "$FILES" | while read -r FILE
-				do
-					/usr/bin/shasum -a 256 "$FILE"
-				done > checksums.sha512
-				notify "✅ Done" "checksums.sha256"
+				FILES=$(find * -type f -not -path '*/\.*')
+				if [[ "$DIG_CHOICE" == "MD5" ]] ; then
+					echo "$FILES" | while read -r FILE
+					do
+						if [[ "$FILE" == *".sfv" ]] || [[ "$FILE" == *".md5" ]] || [[ "$FILE" == *".sha1" ]] || [[ "$FILE" == *".sha256" ]] || [[ "$FILE" == *".sha512" ]] || [[ "$FILE" == "checksums.crc32" ]] ; then
+							continue
+						fi
+						/sbin/md5 -r "$FILE"
+					done > "$FILEPATH/checksums.md5"
+					notify "✅ Done" "checksums.md5"
+				elif [[ "$DIG_CHOICE" == "SHA-"* ]] ; then
+					DIG_SHAOPT=$(echo "$DIG_CHOICE" | /usr/bin/awk -F"-" '{print $2}')
+					echo "$FILES" | while read -r FILE
+					do
+						if [[ "$FILE" == *".sfv" ]] || [[ "$FILE" == *".md5" ]] || [[ "$FILE" == *".sha1" ]] || [[ "$FILE" == *".sha256" ]] || [[ "$FILE" == *".sha512" ]] || [[ "$FILE" == "checksums.crc32" ]] ; then
+							continue
+						fi
+						/usr/bin/shasum -a "$DIG_SHAOPT" "$FILE"
+					done > "$FILEPATH/checksums.sha$DIG_SHAOPT"
+					notify "✅ Done" "checksums.sha$DIG_SHAOPT"
+				fi
 				cd $HOME
 				exit # ALT: continue
 			else
@@ -425,9 +540,9 @@ fi
 if [[ "$METHOD" != "digest" ]] ; then
 
 	CHECKSUM=$(/usr/bin/pbpaste | /usr/bin/xargs 2>/dev/null)
-	if [[ "$EXTD" == "native" ]] || [[ "$EXTD" == "bc" ]] ; then
+	if [[ "$EXTD" == "native" ]] || [[ "$EXTD" == "bc" ]] || [[ "$EXTD" == "bc-ca" ]] || [[ "$EXTD" == "ca" ]] ; then
 		CS_TYPE=$(cscn "$CHECKSUM")
-	elif [[ "$EXTD" == "rh" ]] || [[ "$EXTD" == "rh-bc" ]] ; then
+	elif [[ "$EXTD" == "rh" ]] || [[ "$EXTD" == "rh-bc" ]] || [[ "$EXTD" == "rh-bc-ca" ]] || [[ "$EXTD" == "rh-ca" ]] ; then
 		CS_TYPE=$(cscx "$CHECKSUM")
 	fi
 
@@ -453,8 +568,8 @@ if [[ "$METHOD" != "digest" ]] ; then
 tell application "System Events"
 	activate
 	set theLogoPath to ((path to library folder from user domain) as text) & "Caches:local.lcars.Checksums:lcars.png"
-	set theButton to button returned of (display dialog "You are about to calculate the checksum for \"" & "$FILE" & "\". Please select the algorithm." ¬
-		buttons {"Cancel", "Other", "SHA-256"} ¬
+	set theButton to button returned of (display dialog "You have selected the target \"" & "$FILE" & "\". How do you want to proceed?" ¬
+		buttons {"Compare Files", "Calculate Other", "Calculate SHA-256"} ¬
 		default button 3 ¬
 		with title "Checksums" ¬
 		with icon file theLogoPath ¬
@@ -466,15 +581,110 @@ EOT)
 			exit # ALT: continue
 		fi
 
+		if [[ "$CS_CHOICE" == "Calculate SHA-256" ]] || [[ "$CS_CHOICE" == "Calculate Other" ]] ; then
+			METHOD="new"
+		elif [[ "$CS_CHOICE" == "Compare Files" ]] ; then
+			METHOD="fcompare"
+		fi
+
 		# default choice: calculate SHA-256
-		if [[ "$CS_CHOICE" == "SHA-256" ]] ; then
+		if [[ "$CS_CHOICE" == "Calculate SHA-256" ]] ; then
 			FILESUM=$(/usr/bin/shasum -a 256 "$FILEPATH" | /usr/bin/awk '{print $1}')
-		else
-			# ask for other choice from list
+			CS_CHOICE="SHA-256"
+
+		# MD5-compare with a second file
+		elif [[ "$CS_CHOICE" == "Compare Files" ]] ; then
+			CFILEPATH=$(/usr/bin/osascript << EOT
+tell application "System Events"
+	activate
+	set theStartDirectory to ((path to home folder from user domain) as text) as alias
+	set theCFile to choose file with prompt "Please select the second file for comparison…" default location theStartDirectory with invisibles
+	set theCFilePath to (POSIX path of theCFile)
+end tell
+theCFilePath
+EOT)
+			if [[ "$CFILEPATH" == "" ]] || [[ "$CFILEPATH" == "false" ]] ; then
+				exit # ALT: continue
+			fi
+			if [[ "$CFILEPATH" == "$FILEPATH" ]] ; then
+				notify "💣 Error: same file" "${FILEPATH/$HOME/~}"
+				exit # ALT: continue
+			fi
+			CPATH_TYPE=$(/usr/bin/mdls -name kMDItemContentTypeTree "$CFILEPATH" | /usr/bin/grep -e "bundle")
+			if [[ "$CPATH_TYPE" != "" ]] ; then
+				notify "💣 Error: target is a bundle" "$CFILEPATH"
+				exit # ALT: continue
+			fi
+			if [[ -d "$CFILEPATH" ]] ; then
+				notify "💣 Error: target is a directory" "$CFILEPATH"
+				exit # ALT: continue
+			fi
+			notify "⚠️ Please wait!" "Comparing files…"
+			ALGORITHM="MD5"
+			CFILE=$(/usr/bin/basename "$CFILEPATH")
+			CBYTES=$(/usr/bin/stat -f%z "$CFILEPATH")
+			OHASH=$(/sbin/md5 -q "$FILEPATH")
+			CHASH=$(/sbin/md5 -q "$CFILEPATH")
+			if [[ "$OHASH" == "$CHASH" ]] ; then
+				notify "✅ Success: MD5" "Checksums match"
+				STATUS="✅ Success"
+			else
+				notify "❌ Failed: MD5" "Checksum mismatch"
+				STATUS="❌ Failed"
+			fi
+			HOMEPATH=$(echo $HOME)
+			echo "Files:"
+			echo "$FILE"
+			echo "$CFILE"
+			echo "Paths:"
+			echo "${FILEPATH/$HOME/~}"
+			echo "${CFILEPATH/$HOME/~}"
+			echo "Sizes:"
+			echo "$BYTES B"
+			echo "$CBYTES B"
+			echo "Checksums ($ALGORITHM):"
+			echo "$OHASH"
+			echo "$CHASH"
+			echo "Result: $STATUS"
+			CPROMPT="■■■ Files ■■■
+[1] $FILE
+[2] $CFILE
+
+■■■ Paths ■■■
+[1] ${FILEPATH/$HOME/~}
+[2] ${CFILEPATH/$HOME/~}
+
+■■■ Sizes ■■■
+[1] $BYTES B
+[2] $CBYTES B
+
+■■■ Verification ■■■
+$STATUS
+
+■■■ Checksums [$ALGORITHM] ■■■
+[1] $OHASH
+[2] $CHASH"
+			# create prompt
+			CINFO=$(/usr/bin/osascript 2>/dev/null<< EOT
+tell application "System Events"
+	activate
+	set theLogoPath to ((path to library folder from user domain) as text) & "Caches:local.lcars.Checksums:lcars.png"
+	set userChoice to button returned of (display dialog "$CPROMPT" ¬
+		buttons {"OK"} ¬
+		default button 1 ¬
+		with title "Checksums" ¬
+		with icon file theLogoPath ¬
+		giving up after 180)
+end tell
+EOT)
+			exit # ALT: continue
+
+		# ask for other choice from list
+		elif [[ "$CS_CHOICE" == "Calculate Other" ]] ; then
 			if [[ "$EXTD" == "native" ]] ; then
 				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
 tell application "System Events"
-	set theList to {"Adler-32","CRC (BSD)","CRC (System V)","CRC (legacy 32bit)","CRC (ISO/IEC 8802-3)","CRC-32","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512"}
+	set theList to {"Adler-32","CRC Hashes…","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512"}
 	set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
 end tell
 theResult
@@ -482,15 +692,7 @@ EOT)
 			elif [[ "$EXTD" == "rh" ]] ; then
 				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
 tell application "System Events"
-set theList to {"Adler-32","AICH","BTIH","CRC (BSD)","CRC (System V)","CRC (legacy 32bit)","CRC (ISO/IEC 8802-3)","CRC-32","DC++ TTH","ED2K","EDON-R 256","EDON-R 512","GOST","GOST CryptoPro","HAS-160","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512","SHA3-224","SHA3-256","SHA3-384","SHA3-512","SNEFRU-128","SNEFRU-256","Tiger","Whirlpool"}
-set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
-end tell
-theResult
-EOT)
-			elif [[ "$EXTD" == "rh-bc" ]] ; then
-				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
-tell application "System Events"
-set theList to {"Adler-32","AICH","Bencode","BTIH","CRC (BSD)","CRC (System V)","CRC (legacy 32bit)","CRC (ISO/IEC 8802-3)","CRC-32","DC++ TTH","ED2K","EDON-R 256","EDON-R 512","GOST","GOST CryptoPro","HAS-160","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512","SHA3-224","SHA3-256","SHA3-384","SHA3-512","SNEFRU-128","SNEFRU-256","Tiger","Whirlpool"}
+set theList to {"Adler-32","AICH","BTIH","CRC Hashes…","DC++ TTH","ED2K","EDON-R 256","EDON-R 512","GOST","GOST CryptoPro","HAS-160","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512","SHA3-224","SHA3-256","SHA3-384","SHA3-512","SNEFRU-128","SNEFRU-256","Tiger","Whirlpool"}
 set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
 end tell
 theResult
@@ -498,7 +700,47 @@ EOT)
 			elif [[ "$EXTD" == "bc" ]] ; then
 				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
 tell application "System Events"
-	set theList to {"Adler-32","Bencode","CRC (BSD)","CRC (System V)","CRC (legacy 32bit)","CRC (ISO/IEC 8802-3)","CRC-32","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512"}
+	set theList to {"Adler-32","Bencode","CRC (BSD)","CRC Hashes…","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512"}
+	set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
+end tell
+theResult
+EOT)
+			elif [[ "$EXTD" == "ca" ]] ; then
+				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
+tell application "System Events"
+	set theList to {"Adler-32","CRC (BSD)","CRC Hashes…","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512"}
+	set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
+end tell
+theResult
+EOT)
+			elif [[ "$EXTD" == "rh-bc" ]] ; then
+				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
+tell application "System Events"
+set theList to {"Adler-32","AICH","Bencode","BTIH","CRC Hashes…","DC++ TTH","ED2K","EDON-R 256","EDON-R 512","GOST","GOST CryptoPro","HAS-160","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512","SHA3-224","SHA3-256","SHA3-384","SHA3-512","SNEFRU-128","SNEFRU-256","Tiger","Whirlpool"}
+set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
+end tell
+theResult
+EOT)
+			elif [[ "$EXTD" == "rh-bc-ca" ]] ; then
+				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
+tell application "System Events"
+set theList to {"Adler-32","AICH","Bencode","BTIH","CRC Hashes…","DC++ TTH","ED2K","EDON-R 256","EDON-R 512","GOST","GOST CryptoPro","HAS-160","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512","SHA3-224","SHA3-256","SHA3-384","SHA3-512","SNEFRU-128","SNEFRU-256","Tiger","Whirlpool"}
+set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
+end tell
+theResult
+EOT)
+			elif [[ "$EXTD" == "rh-ca" ]] ; then
+				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
+tell application "System Events"
+set theList to {"Adler-32","AICH","BTIH","CRC Hashes…","DC++ TTH","ED2K","EDON-R 256","EDON-R 512","GOST","GOST CryptoPro","HAS-160","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512","SHA3-224","SHA3-256","SHA3-384","SHA3-512","SNEFRU-128","SNEFRU-256","Tiger","Whirlpool"}
+set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
+end tell
+theResult
+EOT)
+			elif [[ "$EXTD" == "bc-ca" ]] ; then
+				HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
+tell application "System Events"
+	set theList to {"Adler-32","Bencode","CRC Hashes…","MD4","MD5","MDC-2","RIPEMD-160","SHA-0","SHA-1","SHA-224","SHA-256","SHA-384","SHA-512"}
 	set theResult to choose from list theList with prompt "Please select the algorithm." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
 end tell
 theResult
@@ -506,6 +748,29 @@ EOT)
 			fi
 			if [[ "$HA_CHOICE" == "" ]] || [[ "$HA_CHOICE" == "false" ]] ; then
 				exit # ALT: continue
+			fi
+
+			if [[ "$HA_CHOICE" == "CRC Hashes…" ]] ; then
+				if [[ $(echo "$EXTD" | /usr/bin/grep "ca") != "" ]] ; then
+					HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
+tell application "System Events"
+	set theList to {"CRC (BSD)","CRC (System V)","CRC (legacy 32bit)","CRC (ISO/IEC 8802-3)","CRC-32","CRC-32C (Hex)"}
+	set theResult to choose from list theList with prompt "Please select the CRC hash." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
+end tell
+theResult
+EOT)
+				else
+					HA_CHOICE=$(/usr/bin/osascript 2>/dev/null << EOT
+tell application "System Events"
+	set theList to {"CRC (BSD)","CRC (System V)","CRC (legacy 32bit)","CRC (ISO/IEC 8802-3)","CRC-32"}
+	set theResult to choose from list theList with prompt "Please select the CRC hash." with title "Checksums" OK button name "Select" cancel button name "Cancel" without multiple selections allowed
+end tell
+theResult
+EOT)
+				fi
+				if [[ "$HA_CHOICE" == "" ]] || [[ "$HA_CHOICE" == "false" ]] ; then
+					exit # ALT: continue
+				fi
 			fi
 
 			# calculate checksum based on user choice (native)
@@ -523,7 +788,7 @@ EOT)
 				FILESUM=$(/usr/bin/openssl dgst -ripemd160 "$FILEPATH" | /usr/bin/awk -F"= " '{print $2}')
 
 			elif [[ "$HA_CHOICE" == "CRC-32" ]] ; then
-				FILESUM=$(/usr/bin/crc32 -file "$FILEPATH")
+				FILESUM=$(/usr/bin/crc32 "$FILEPATH")
 
 			elif [[ "$HA_CHOICE" == "Adler-32" ]] ; then
 				FILESUM=$(/usr/bin/python "$BIN_DIR/adler32.py" "$FILEPATH" | /usr/bin/awk '{print $1}')
@@ -552,13 +817,22 @@ EOT)
 			fi
 
 			# calculate checksum based on user choice (transmission-show)
-			if [[ "$EXTD" == "bc" ]] ; then
+			if [[ $(echo "$EXTD" | /usr/bin/grep "bc") != "" ]] ; then
 				if [[ "$HA_CHOICE" == "Bencode" ]] ; then
 					FILESUM=$("$TRANSM" "$FILEPATH" 2>&1 | /usr/bin/grep "Hash: " | /usr/bin/awk '{print $2}')
 					if [[ "$FILESUM" == "Error"* ]] || [[ "$FILESUM" == "" ]] ; then
 						notify "💣 Error [Bencode]" "Target possibly not a torrent file"
 						exit # ALT: continue
 					fi
+				fi
+			fi
+
+			# calculate checksum based on user choice (gsutil)
+			if [[ "$HA_CHOICE" == "CRC-32C (Hex)" ]] ; then
+				FILESUM=$("$GSUTIL" hash -c -h "$FILEPATH" 2>&1 | /usr/bin/grep "Hash (crc32c)" | /usr/bin/awk -F: '{print $2}' | /usr/bin/xargs)
+				if [[ "$FILESUM" == "CommandException"* ]] || [[ "$FILESUM" == "" ]] ; then
+					notify "💣 Error [Bencode]" "Target possibly not a torrent file"
+					exit # ALT: continue
 				fi
 			fi
 
@@ -688,7 +962,7 @@ Checksum [$CS_CHOICE]: $FILESUM"
 
 		# calculate CRC-32 & Adler-32
 		elif [[ "$CS_TYPE" == "crc" ]] ; then
-			FILESUM=$(/usr/bin/crc32 -file "$FILEPATH")
+			FILESUM=$(/usr/bin/crc32 "$FILEPATH")
 			if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
 				ALGORITHM="CRC-32"
 				STATUS="✅ Success"
@@ -698,9 +972,21 @@ Checksum [$CS_CHOICE]: $FILESUM"
 					ALGORITHM="Adler-32"
 					STATUS="✅ Success"
 				else
-					ALGORITHM="CRC/Adler-32"
-					STATUS="❌ Failed"
-					FILESUM="💣 n/a"
+					if [[ $(echo "$EXTD" | /usr/bin/grep "ca") != "" ]] ; then
+						FILESUM=$("$GSUTIL" hash -c -h "$FILEPATH" 2>&1 | /usr/bin/grep "Hash (crc32c)" | /usr/bin/awk -F: '{print $2}' | /usr/bin/xargs)
+						if [[ "$FILESUM" == "$CHECKSUM" ]] ; then
+							ALGORITHM="CRC-32C (Hex)"
+							STATUS="✅ Success"
+						else
+							ALGORITHM="CRC/Adler-32"
+							STATUS="❌ Failed"
+							FILESUM="💣 n/a"
+						fi
+					else
+						ALGORITHM="CRC/Adler-32"
+						STATUS="❌ Failed"
+						FILESUM="💣 n/a"
+					fi
 				fi
 			fi
 
