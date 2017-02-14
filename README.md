@@ -128,7 +128,9 @@ More information: [transmission](https://github.com/transmission/transmission-re
 
 ![checksum-failed](https://github.com/JayBrown/Checksums/blob/master/img/checksums-fail.png)
 
-![checksum-algorithms](https://github.com/JayBrown/Checksums/blob/master/img/checksums-other.png)      ![checksum-crc](https://github.com/JayBrown/Checksums/blob/master/img/checksums-crcsubmenu.png)
+![checksum-algorithms](https://github.com/JayBrown/Checksums/blob/master/img/checksums-other.png)
+
+![checksum-crc](https://github.com/JayBrown/Checksums/blob/master/img/checksums-crcsubmenu.png)
 
 ![checksum-fcompare-true](https://github.com/JayBrown/Checksums/blob/master/img/checksums-fcompare-true.png)
 
