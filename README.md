@@ -54,7 +54,7 @@ Minimum OS: **OS X 10.8**
 * BitTorrent file hash calculation is possible, if the user has installed the `transmission` CLI
 * CRC-32C hash calculation is possible, if the user has installed the `gsutil` python CLI
 * creates `.sfv`, `.md5`, `.sha1`, `.sha256`, or `.sha512` checksum digests for all files in a selected directory (recursive, without invisibles)
-* verifies `.sfv`, `.md5`, `.sha1`, `.sha256`, or `.sha512` checksum digests for single or multiple files incl. directories (recursive)
+* verifies `.sfv`, `.md5`, `.sha1`, `.sha256`, or `.sha512` checksum digests for single or multiple files incl. directories (recursive, all files as per digest)
 * compares two files using MD5
 * compares contents of two directories using CRC-32 (recursive, with invisibles, without .DS_Store)
 
