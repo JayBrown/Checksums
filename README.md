@@ -66,6 +66,7 @@ Minimum OS: **OS X 10.8**
 
 ### Future
 * **mhash** integration via `py-mhash` (unsure)
+* more CRC hashes via `crccheck` (unsure)
 
 ## Installation
 * [Download the latest DMG](https://github.com/JayBrown/Checksums/releases) and open
